@@ -1,0 +1,5 @@
+persistence    n=  819 mape= 43.13% agreement= 49.7% rmse=  92.59
+neighbour IDW  n=  826 mape= 20.63% agreement= 65.6% rmse=  51.08
+
+Interpretation: if persistence is far better, the limiter is
+spatial density. If comparable, interpolation is at its ceiling.

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local data caches. These are reproducible from the public APIs and are
+# large, so they stay out of history.
+cache/
+scratch/osm_cache/
+*.pkl
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Agent/tooling state
+.commandcode/
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store

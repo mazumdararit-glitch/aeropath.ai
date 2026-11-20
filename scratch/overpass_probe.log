@@ -1,0 +1,5 @@
+overpass status              FAIL ReadTimeout: The read operation timed out
+osmnx version                2.2.0
+graph_from_point 600 m       OK     69.0s  122 nodes, 356 edges
+features park 1500 m         OK     97.4s  28 features
+total elapsed                 190.4s

@@ -1,0 +1,10 @@
+Fetching 5 days of CPCB data for Kolkata (2024-11-01 to 2024-11-05)...
+7 CPCB stations, 951 station-hours
+grid survey: {'resolution': 8, 'stations': 7, 'station_cells': 7, 'median_nearest_station_km': 2.24, 'max_nearest_station_km': 5.96}
+Loading OSM road context (slow, cached after first run)...
+using cached OSM context scratch\osm_cache\kolkata_station_context.pkl
+road context resolved for 7/7 stations
+
+written to docs/phase0-osm.json
+
+GATE: FAIL: category agreement 55.4% < 70%; MAPE improvement -25.9% < 5%

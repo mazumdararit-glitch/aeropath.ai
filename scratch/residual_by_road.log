@@ -1,0 +1,18 @@
+   station          road     n  mean residual    median
+  site_296   residential   119         -9.93%   -13.83%
+  site_309     secondary   119        -10.90%    -6.58%
+ site_5110       service   117         -2.17%    -1.53%
+ site_5111       service   117         +6.65%    +7.95%
+ site_5126       service   117        -27.42%   -21.96%
+ site_5129      tertiary   119        -12.99%   -12.67%
+ site_5238   residential   118        +20.54%   +20.92%
+
+   road class     n  mean residual
+      service   351         -7.64%
+  residential   237         +5.24%
+    secondary   119        -10.90%
+     tertiary   119        -12.99%
+
+A positive mean residual means the station is dirtier than its
+neighbours predict. If busy-road classes are systematically positive,
+road_factor carries real signal and is worth calibrating.
