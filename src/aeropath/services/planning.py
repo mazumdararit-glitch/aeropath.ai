@@ -156,6 +156,9 @@ class PlanService:
     def __init__(self, provider: GridProvider, router: OsrmRouter) -> None:
         self._provider = provider
         self._router = router
+        # Set from the first reading that carries a timestamp, so a live provider
+        # still reports which hour it modelled.
+        self._last_observed_at: datetime | None = None
 
     async def plan(
         self,
@@ -183,6 +186,11 @@ class PlanService:
             )
             sampled += len(readings)
             with_concentrations += sum(1 for reading in readings if reading.concentrations)
+            # Remember when the data describes, for the response's data_date.
+            for reading in readings:
+                if reading.observed_at is not None:
+                    self._last_observed_at = reading.observed_at
+                    break
             engine_segments = self._to_engine_segments(segments, readings)
 
             try:
@@ -242,13 +250,17 @@ class PlanService:
         )
 
     def _data_date(self) -> str | None:
-        """Ask the provider which day it served, when it knows.
+        """Which day/time the numbers describe, from whichever provider served.
 
-        Kept optional so a provider without a lag (a live forecast, say) does not
-        have to report one.
+        A lagging provider knows its archive day; a live one stamps the hour its
+        model field describes. Either way the response carries a date rather than
+        leaving "now" to be assumed.
         """
         resolved = getattr(self._provider, "resolved_day", None)
-        return resolved.isoformat() if resolved is not None else None
+        if resolved is not None:
+            return resolved.isoformat()
+        observed = getattr(self, "_last_observed_at", None)
+        return observed.isoformat() if observed else None
 
     def _to_engine_segments(
         self,

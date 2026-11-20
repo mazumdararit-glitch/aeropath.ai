@@ -25,6 +25,17 @@ class Settings(BaseSettings):
     xkdr_api_key: str = Field(default="", description="XKDR India Air Quality API key")
     xkdr_base_url: str = "https://airquality.xkdr.org"
 
+    # Which grid source the plan endpoint uses.
+    #
+    # "open_meteo" is the default because it is live. XKDR's public dataset
+    # collapsed after 2024-12 (4.1M rows/month -> ~1.4k), so it is a historical
+    # archive rather than a live feed.
+    #
+    # "xkdr" uses real station measurements but is months behind, and after
+    # 2024-12 reports only PM2.5 and PM10, which is below CPCB's three-pollutant
+    # minimum for a national AQI.
+    grid_provider: str = "open_meteo"
+
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_timeout_s: float = 15.0
 
@@ -48,6 +59,21 @@ class Settings(BaseSettings):
                 f"{XKDR_SIGNUP_URL} — then add XKDR_API_KEY=... to .env"
             )
         return self.xkdr_api_key
+
+    def require_provider_key(self) -> str | None:
+        """The key the selected provider needs, if any.
+
+        Only the XKDR provider needs one. Open-Meteo is keyless, so the default
+        deployment has no required configuration at all.
+        """
+        if self.grid_provider == "xkdr":
+            return self.require_xkdr()
+        if self.grid_provider == "open_meteo":
+            return None
+        raise RuntimeError(
+            f"unknown GRID_PROVIDER {self.grid_provider!r}; "
+            "expected 'open_meteo' or 'xkdr'"
+        )
 
 
 def load_settings() -> Settings:

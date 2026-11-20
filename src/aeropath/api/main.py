@@ -19,7 +19,9 @@ from pydantic import BaseModel, Field
 
 from aeropath.config import Settings, load_settings
 from aeropath.external.cpcb_stations import StationClient, StationDataError
+from aeropath.external.open_meteo_provider import OpenMeteoProvider
 from aeropath.external.osrm import OsrmRouter, RoutingError
+from aeropath.external.provider import GridProvider
 from aeropath.external.xkdr_provider import XkdrStationProvider
 from aeropath.schemas.common import (
     Activity,
@@ -91,6 +93,19 @@ class PlanResponse(BaseModel):
     )
 
 
+def build_provider(settings: Settings) -> GridProvider:
+    """Construct the configured grid provider.
+
+    Kept as a function rather than inline so the choice is testable and so a new
+    source is one branch, not a scattered edit.
+    """
+    key = settings.require_provider_key()
+    if settings.grid_provider == "xkdr":
+        assert key is not None
+        return XkdrStationProvider(key)
+    return OpenMeteoProvider()
+
+
 def create_app(
     settings: Settings | None = None, service: PlanService | None = None
 ) -> FastAPI:
@@ -111,9 +126,9 @@ def create_app(
     def get_service() -> PlanService:
         if service is not None:
             return service
-        # The key is required; failing here rather than per-request keeps the
-        # error at startup where an operator will actually see it.
-        provider = XkdrStationProvider(resolved.require_xkdr())
+        # Selecting the provider is configuration; failing here rather than
+        # per-request keeps that error at startup where an operator sees it.
+        provider = build_provider(resolved)
         router = OsrmRouter(
             resolved.osrm_base_url, timeout_s=resolved.osrm_timeout_s
         )
@@ -129,6 +144,7 @@ def create_app(
         return {
             "service": "AEROPATH",
             "version": "0.1.0",
+            "provider": resolved.grid_provider,
             "docs": "/docs",
             "health": "/healthz",
             "plan": "POST /v1/plan",
@@ -138,18 +154,32 @@ def create_app(
     async def healthz() -> dict[str, object]:
         return {
             "status": "ok",
+            "provider": resolved.grid_provider,
             "xkdr_configured": bool(resolved.xkdr_api_key),
             "router": resolved.osrm_base_url,
         }
 
     @app.get("/v1/coverage")
     async def coverage() -> dict[str, object]:
-        """What data actually exists.
+        """What data exists, and how fresh it is.
 
-        The plan endpoint answers with the newest available data, which is months
-        behind today. Without this endpoint a caller has no way to know that, and
-        "AQI 180" would be read as current air when it may describe last August.
+        Without this a caller cannot tell live model output from a months-old
+        archive, and would read "AQI 180" as today's air when it may describe
+        last August.
         """
+        if resolved.grid_provider != "xkdr":
+            return {
+                "provider": "open_meteo_cams",
+                "freshness": "live",
+                "resolution_km": 45,
+                "pollutants": ["PM2.5", "PM10", "NO2", "SO2", "CO", "Ozone"],
+                "note": (
+                    "Modelled CAMS grid at roughly 45 km over India: every point "
+                    "inside a city returns the same values, so this ranks routes "
+                    "poorly but reports today's air correctly."
+                ),
+            }
+
         try:
             client = StationClient(api_key=resolved.require_xkdr())
             try:
@@ -228,16 +258,33 @@ def create_app(
             generated_at=result.generated_at,
             data_source=result.data_source,
             data_date=result.data_date,
-            data_note=_data_note(result),
+            data_note=_data_note(result, provider_name=result.data_source),
         )
 
     return app
 
 
-def _data_note(result: object) -> str:
-    """Assemble the caveats a caller must not have to rediscover."""
+def _data_note(result: object, *, provider_name: str) -> str:
+    """Assemble the caveats a caller must not have to rediscover.
+
+    Provider-specific on purpose: the CAMS grid is live but coarse, while XKDR is
+    station-accurate but months behind and short of pollutants. Saying the wrong
+    one is worse than saying nothing.
+    """
     routes = getattr(result, "routes", ())
     notes: list[str] = []
+
+    if provider_name == "open_meteo_cams":
+        notes.append(
+            "Modelled CAMS grid at roughly 45 km resolution over India. Values are "
+            "live but identical across a city, so use them for timing, not for "
+            "choosing between nearby streets."
+        )
+        date = getattr(result, "data_date", None)
+        if date:
+            notes.append(f"Modelled for {date}.")
+        return " ".join(notes)
+
     if routes and not all(route.is_national_aqi for route in routes):
         notes.append(
             "Index computed from fewer than CPCB's three required pollutants "

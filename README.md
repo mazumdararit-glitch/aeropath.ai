@@ -5,22 +5,26 @@ built against `AEROPATH PRD and System Architecture` v0.1.
 
 Phase 0 concluded that the PRD's street-level model **fails its own accuracy
 gate**, and the measurement is in [`docs/phase0-results.md`](docs/phase0-results.md).
-The product ships without it: routes are ranked on interpolated CPCB station
-data, which the same document measures at 14–20% MAPE and 66–71% category
-agreement across six cities.
+The product ships without it. A `POST /v1/plan` call routes walking or running
+trips, ranks them by inhaled dose, and reports the CPCB index with its category
+and a sensitivity-aware advisory.
+
+Be aware of the honest limit: with live data at ~45 km resolution, the API
+**ranks times better than it ranks routes**. It tells you today's air and the
+cleanest hour, not which side of the street to walk on.
 
 ## Quickstart
 
 ```bash
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"
-
-# Free and instant, no rate limit, no row cap:
-#   https://airquality.xkdr.org/signup
-cp .env.example .env      # then set XKDR_API_KEY
-
 .venv/Scripts/python -m uvicorn aeropath.api.main:app --port 8000
+```
 
+No API key needed. The default provider is Open-Meteo's live CAMS feed, which is
+free and keyless. Open <http://localhost:8000/docs> or:
+
+```bash
 curl -X POST localhost:8000/v1/plan -H 'content-type: application/json' -d '{
   "origin":      {"lat": 28.6315, "lng": 77.2167},
   "destination": {"lat": 28.6129, "lng": 77.2295},
@@ -28,8 +32,25 @@ curl -X POST localhost:8000/v1/plan -H 'content-type: application/json' -d '{
 }'
 ```
 
-No Google Cloud project, no billing, no paid key. Routing uses the keyless OSRM
-demo server.
+## Which data source, and why it matters
+
+Two sources exist behind the `GridProvider` seam. They trade freshness against
+spatial resolution, and the difference decides what the product can honestly claim.
+
+| | Open-Meteo (default) | XKDR stations |
+|---|---|---|
+| Freshness | **live** | archive, ends 2025-08 |
+| Resolution | ~45 km grid | ~2–3 km station spacing |
+| Pollutants | 6 → national AQI | 2 after 2024-12 → sub-index only |
+| Key | none | free, `airquality.xkdr.org/signup` |
+
+The XKDR public dataset **collapsed after 2024-12**: 4.1M rows/month became ~1.4k,
+covering two stations nationwide. It is a historical archive now. Open-Meteo is
+live but its CAMS global grid over India is coarse enough that two Delhi points
+2.9 km apart return byte-identical values.
+
+Set `GRID_PROVIDER=xkdr` to use the station archive instead. The response always
+states which one served it, via `data_source` and `data_note`.
 
 ## Layout
 

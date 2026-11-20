@@ -31,13 +31,18 @@ class PointReading:
 
     @property
     def confidence(self) -> Confidence:
-        """How much to trust this point, from actual monitor distance.
+        """How much to trust this point.
 
-        Thresholds match the obvious physical reading: a point inside a
-        station's own neighbourhood is well constrained, and past ~6 km
-        (roughly Kolkata's worst nearest-neighbour distance) it is little more
-        than a city-wide average.
+        ``nearest_station_km`` means "how far is the evidence from here", which is
+        a monitor distance for station data and a model-grid offset for a
+        modelled source. A single 45 km grid cell means a point is a *model*
+        estimate with no within-city variation, so the thresholds below would
+        otherwise call a whole city "high confidence" just because the grid
+        snapped nearby.
         """
+        if self.source == "open_meteo_cams":
+            # One grid cell per city: useful for timing, never street-level.
+            return Confidence.LOW
         if self.nearest_station_km <= 2.0:
             return Confidence.HIGH
         if self.nearest_station_km <= 6.0:
