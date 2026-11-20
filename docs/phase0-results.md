@@ -145,8 +145,45 @@ Separately, an `--osm` run that resolved no context used to continue and report 
 - **Providers** — Google Air Quality pinned to `ind_cpcb`, with `history:lookup` for the validation window and page counting; CPCB stations with truncation-safe day paging; point-local Overpass road context.
 - **Nationwide validation** — `cities --all-cities` walks every city in the dataset (247 cities, 558 stations), densest network first.
 - **Road-class residual analysis** — `scripts/road_class_residuals.py`, station-level with bootstrap CIs, permutation tests and a variance decomposition, so a null result can be told apart from an underpowered one.
-- **270 unit tests passing.**
+- **Provider layer** — `external/provider.py` defines the seam; `external/xkdr_provider.py` implements it over real station data with IDW.
+- **CPCB averaging** — `domain/national_aqi.py` builds the 24-hour and 8-hour windows CPCB requires, so a single hourly spike is never reported as the day's air.
+- **Unit safety** — `domain/units.py` converts CO between µg/m³ and mg/m³, which without it would saturate the sub-index at 500 and report "Severe" for ordinary air.
+- **HTTP surface** — `api/main.py`, `POST /v1/plan`, verified booting and serving.
+- **314 unit tests passing.**
 
 ## What is blocked
 
-The real gate needs the provider grid, which needs a Google Air Quality key and the ingestion path. The client now implements `history:lookup`, which is the endpoint the comparison requires, but it cannot be exercised without a key. Everything above is honest about being an interpolation test, and every output says so.
+**Nothing is blocked any more.** The two dependencies that made this section read
+"blocked" have both been removed:
+
+* **The Google Air Quality key is no longer needed.** XKDR issues a free, instant
+  API key at <https://airquality.xkdr.org/signup>, with no rate limit and no row
+  cap. That is the same source the validation harness already used, so validation
+  and production now read one path. Free is not a compromise here: XKDR republishes
+  the actual CPCB CAAQM measurements, which is ground truth, whereas a modelled
+  500 m grid was always an approximation of it.
+* **Open-Meteo is not the fallback.** It needs no key, but for India it serves CAMS
+  *global* at ~45 km: two Delhi points 2.9 km apart returned byte-identical arrays.
+  It cannot support a route-ranking product and is not used.
+
+## What removing the street model unblocks
+
+Once the adjustment is dropped, **station-to-station leave-one-out becomes a valid
+instrument.** Finding 3 rejected it because interpolated neighbours already encode
+their own road effects, so applying `road_factor` afterwards double-counts. With no
+adjustment there is nothing to double-count, and LOO validates exactly what ships:
+interpolation plus the CPCB index.
+
+That is why the gate numbers in this document are still meaningful and are no longer
+a dead end — the measured 14–20% MAPE and 66–71% category agreement are the accuracy
+of the product, not of a rejected model.
+
+## What the product honestly does not do
+
+- **No street-level variation.** IDW between stations ~3 km apart smooths away the
+  ±20–27% local effect this document measures. Routes are ranked on neighbourhood air.
+- **No forecast.** XKDR publishes measurements only, so the best-hour recommendation
+  is an hour-of-day **climatology** from history, labelled as such in every response.
+  It answers "when is it usually cleaner", not "what will it be at 18:00".
+
+Both are stated in the API response rather than left for the user to discover.

@@ -78,6 +78,26 @@ DEFAULT_MODEL = StreetModelParams(
     road_factors=dict(DEFAULT_ROAD_FACTORS),
 )
 
+# What production uses.
+#
+# ``rules_v1`` above is kept for the Phase 0 harness and its tests, but it must
+# not score a user-facing route: ``road_factor`` has the wrong sign and road
+# class explains 12.8% of residual variance at p=0.429 (docs/phase0-results.md,
+# finding 4). Every one of the six cities with enough stations to test it failed
+# the gate with this model applied.
+#
+# This identity model is not "untuned" — it is the correct answer until a proxy
+# that actually locates local variation exists. It scales every factor to 1.0,
+# so the engine returns the interpolated value unchanged.
+IDENTITY_MODEL = StreetModelParams(
+    version="identity_v1",
+    road_factors={road_class: 1.0 for road_class in RoadClass},
+    green_attenuation=0.0,
+    water_attenuation=0.0,
+    rush_factor=1.0,
+    night_factor=1.0,
+)
+
 
 def road_factor(params: StreetModelParams, road_class: RoadClass) -> float:
     return params.road_factors.get(road_class, 1.00)

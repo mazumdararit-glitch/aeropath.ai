@@ -51,6 +51,14 @@ if str(SRC) not in sys.path:
 
 from aeropath.domain import cpcb_aqi  # noqa: E402
 from aeropath.domain.cpcb_aqi import InsufficientDataError  # noqa: E402
+from aeropath.domain.interpolation import (  # noqa: E402
+    MAX_NEIGHBOUR_KM,
+    haversine_km,
+    interpolate,
+)
+from aeropath.domain.interpolation import (
+    inverse_distance_weights as idw_weights,
+)
 from aeropath.domain.metrics import (  # noqa: E402
     GateResult,
     Pair,
@@ -75,16 +83,6 @@ AQI_PARAMETERS = ["PM2.5", "PM10", "NO2", "SO2", "CO", "Ozone", "NH3"]
 
 # Kolkata's monitoring network covers roughly 1 station per 30 km², so the
 # nearest-neighbour distances are large and that is itself a Phase 0 finding.
-MAX_NEIGHBOUR_KM = 25.0
-
-
-def haversine_km(a: Coordinate, b: Coordinate) -> float:
-    from math import asin, cos, radians, sin, sqrt
-
-    lat1, lon1, lat2, lon2 = map(radians, (a.lat, a.lng, b.lat, b.lng))
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    h = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    return 2 * 6371.0088 * asin(sqrt(h))
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,27 +100,17 @@ class StationContext:
 def inverse_distance_weights(
     target: Coordinate, others: list[Station], *, power: float = 2.0
 ) -> dict[str, float]:
-    """IDW weights for interpolating a point from surrounding stations."""
-    weights: dict[str, float] = {}
-    for station in others:
-        distance = haversine_km(target, station.coordinate)
-        if distance <= 0.05:
-            # A co-located station dominates; avoid a division by zero.
-            return {station.station_id: 1.0}
-        if distance > MAX_NEIGHBOUR_KM:
-            continue
-        weights[station.station_id] = 1.0 / distance**power
-    return weights
+    """IDW weights for interpolating a point from surrounding stations.
 
-
-def interpolate(values: dict[str, float], weights: dict[str, float]) -> float | None:
-    usable = {sid: w for sid, w in weights.items() if sid in values}
-    if not usable:
-        return None
-    total = sum(usable.values())
-    if total <= 0:
-        return None
-    return sum(values[sid] * w for sid, w in usable.items()) / total
+    Thin adapter over ``domain.interpolation`` so the harness and the product
+    interpolate identically; this function only exists to accept ``Station``
+    objects rather than a coordinate mapping.
+    """
+    return idw_weights(
+        target,
+        {s.station_id: s.coordinate for s in others},
+        power=power,
+    )
 
 
 async def collect_station_data(

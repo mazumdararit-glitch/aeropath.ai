@@ -3,34 +3,69 @@
 Route and time planner that ranks outdoor activity by air pollution exposure,
 built against `AEROPATH PRD and System Architecture` v0.1.
 
-Phase 0 (accuracy validation) is in progress — see [`docs/phase0-results.md`](docs/phase0-results.md).
-**The gate currently fails**, and the results document explains exactly why.
+Phase 0 concluded that the PRD's street-level model **fails its own accuracy
+gate**, and the measurement is in [`docs/phase0-results.md`](docs/phase0-results.md).
+The product ships without it: routes are ranked on interpolated CPCB station
+data, which the same document measures at 14–20% MAPE and 66–71% category
+agreement across six cities.
+
+## Quickstart
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -e ".[dev]"
+
+# Free and instant, no rate limit, no row cap:
+#   https://airquality.xkdr.org/signup
+cp .env.example .env      # then set XKDR_API_KEY
+
+.venv/Scripts/python -m uvicorn aeropath.api.main:app --port 8000
+
+curl -X POST localhost:8000/v1/plan -H 'content-type: application/json' -d '{
+  "origin":      {"lat": 28.6315, "lng": 77.2167},
+  "destination": {"lat": 28.6129, "lng": 77.2295},
+  "activity": "walk", "sensitivity": "normal"
+}'
+```
+
+No Google Cloud project, no billing, no paid key. Routing uses the keyless OSRM
+demo server.
 
 ## Layout
 
 ```
 src/aeropath/
-  schemas/common.py          shared wire types (no I/O)
+  config.py                 settings; missing key fails at startup
+  schemas/common.py         shared wire types (no I/O)
   domain/
-    grid.py                  H3 grid: point -> cell, bbox -> cells
+    grid.py                 H3 grid: point -> cell, bbox -> cells
     cpcb_aqi.py             national AQI from pollutant concentrations
+    national_aqi.py         CPCB 24h/8h averaging windows -> index
+    units.py                µg/m³ <-> mg/m³, so CO cannot saturate the index
+    interpolation.py        IDW from stations to points (harness and product)
     metrics.py              MAPE, category agreement, gate verdict
-  services/scoring/
-    engine.py               exposure scoring: mean_aqi for colour, dose for ranking
-    street_model.py         road/green/water/time adjustment of concentrations
-    categories.py           CPCB bands, labels, sensitivity advisories
+  services/
+    routing.py              route geometry -> grid segments
+    planning.py             plan a trip; hour-of-day climatology
+    scoring/
+      engine.py             exposure scoring: mean_aqi for colour, dose for ranking
+      street_model.py       legacy adjustment; production uses IDENTITY_MODEL
+      categories.py         CPCB bands, labels, sensitivity advisories
   external/
-    google_aq_client.py     Air Quality API, pinned to ind_cpcb
+    provider.py             the grid-data seam (swap providers without touching scoring)
+    xkdr_provider.py        real CPCB stations + IDW
+    osrm.py                 keyless routing
     cpcb_stations.py        station ground truth (XKDR / CPCB CAAQM)
-    overpass.py             point-local OSM road context
-    osm_context.py          road classification and proximity in metres
+    google_aq_client.py     Air Quality API, pinned to ind_cpcb (unused: paid)
+    overpass.py             point-local OSM road context (unused: see finding 4)
+  api/main.py               POST /v1/plan, /healthz
 scripts/phase0_validate.py  the accuracy gate
 scripts/road_class_residuals.py  does road class explain station residuals?
 ```
 
 ## Setup
 
-Python 3.12+. No Docker or `uv` required.
+Python 3.12+.
 
 ```bash
 python -m venv .venv
@@ -41,22 +76,25 @@ python -m venv .venv
 ## Phase 0 gate
 
 ```bash
-# Works today, no Google key needed: validates the methodology against the
-# public CPCB station network.
+# The gate that matters now. No key needed; validates what production ships.
 python scripts/phase0_validate.py station-loo \
     --city Kolkata --start 2024-11-01 --end 2024-11-05 \
-    --osm --out docs/phase0-kolkata-osm.json
+    --out docs/phase0-kolkata-noroad.json
 
-# Every city in the dataset, densest network first. Free, no key needed.
+# Every city in the dataset, densest network first.
 python scripts/phase0_validate.py cities --all-cities --min-stations 8 \
     --start 2024-11-01 --end 2024-11-02 --out docs/phase0-cities.json
 
-# Needs a Google Air Quality key and the ingestion path. This is the real gate,
-# because its baseline is not built from the stations being tested.
-python scripts/phase0_validate.py provider --city Kolkata
+# The street-model variant, kept to reproduce the Phase 0 findings.
+python scripts/phase0_validate.py station-loo \
+    --city Kolkata --start 2024-11-01 --end 2024-11-05 \
+    --osm --out docs/phase0-kolkata-osm.json
 ```
 
 Exit codes: `0` pass, `1` fail, `2` could not run.
+
+`station-loo` without `--osm` is no longer a compromise: with the street model
+dropped, leave-one-out validates precisely the interpolation the product uses.
 
 The public XKDR demo key reads **2024** bulk files only and caps at 10k rows per
 query. Pass `--api-key` for current data. The client pages by day and splits the
@@ -95,10 +133,31 @@ than their neighbours predict. Kolkata agrees (23.3%, p = 0.760). Refitting the
 factors cannot fix a proxy that does not locate the effect. See
 `docs/phase0-results.md` finding 4 and `scripts/road_class_residuals.py`.
 
-**`history:lookup`, not `forecast:lookup`, for validation.** Station readings
-exist only for the past, so the provider comparison must use the history endpoint
-(30 days, 720 hours). Forecast data would be compared against a different hour
-and would look right or wrong for reasons unrelated to the model.
+**Production uses `IDENTITY_MODEL`, deliberately.** `rules_v1` remains for the
+harness and its tests, but nothing user-facing references it. The identity model
+is not "untuned" — it is the correct answer until a proxy that actually locates
+local variation exists.
+
+**CO is converted, because the units differ.** CPCB's CO anchors are in **mg/m³**
+while most sources emit **µg/m³**. A normal 3675 µg/m³ reading fed in raw hits the
+top of the scale and reports sub-index **500 — Severe**. `domain/units.py` converts
+by explicit table and raises on unknown units rather than guessing.
+
+**A single hourly sample is not a national AQI.** CPCB averages PM/NO2/SO2 over 24
+hours and CO/O3 over 8. `domain/national_aqi.py` builds those windows and excludes
+under-covered ones instead of shortening them, so a rush-hour spike never becomes
+the reported daily value.
+
+**The best-hour answer is climatology, and says so.** XKDR publishes measurements,
+not forecasts. Rather than fake a forecast at 45 km resolution (which is what the
+free alternatives offer), the API returns an hour-of-day profile from history with
+`basis: "climatology"` and its sample count. Every response carries `basis` so a
+measured answer can never be mistaken for a predicted one.
+
+**Removing the adjustment restored the instrument.** Finding 3 rejected
+station-to-station LOO because interpolated neighbours already encode their own
+road effects. With no adjustment there is nothing to double-count, so LOO now
+validates exactly what ships.
 
 **The category is a fact; the advisory is advice.** The number, colour and CPCB
 category are population-level and never recoloured per user. Sensitivity adds a
@@ -107,4 +166,5 @@ sensitive user misreports the air.
 
 **`ind_cpcb`, never UAQI.** Google returns Universal AQI by default, which is a
 different scale with different breakpoints. The client requests the Indian index
-explicitly and rejects a response that lacks it.
+explicitly and rejects a response that lacks it. The paid Google path is now
+unused, but the pinned-index discipline is why the provider seam exists.
