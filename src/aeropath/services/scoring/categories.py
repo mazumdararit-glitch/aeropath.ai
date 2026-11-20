@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 
-from aeropath.schemas.common import AQCategory, Advisory, Sensitivity
+from aeropath.schemas.common import Advisory, AQCategory, Sensitivity
 
 AQI_FLOOR = 0
 AQI_CEILING = 500

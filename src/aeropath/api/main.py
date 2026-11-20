@@ -22,8 +22,8 @@ from aeropath.external.osrm import OsrmRouter, RoutingError
 from aeropath.external.xkdr_provider import XkdrStationProvider
 from aeropath.schemas.common import (
     Activity,
-    AQCategory,
     Advisory,
+    AQCategory,
     Confidence,
     Coordinate,
     Sensitivity,

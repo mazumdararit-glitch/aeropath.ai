@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from aeropath.schemas.common import AQCategory, Advisory, Sensitivity
+from aeropath.schemas.common import Advisory, AQCategory, Sensitivity
 from aeropath.services.scoring import categories
 
 

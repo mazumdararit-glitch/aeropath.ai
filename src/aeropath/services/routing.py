@@ -16,7 +16,8 @@ handful of segments rather than hundreds, and the length weighting stays exact.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import atan2, cos, radians, sin, sqrt
+from itertools import pairwise
+from math import cos, radians, sin, sqrt
 
 from aeropath.domain import grid
 from aeropath.external.osrm import RouteGeometry
@@ -57,7 +58,7 @@ def sample_along(
     samples: list[SampledPoint] = []
     carry = 0.0
 
-    for start, end in zip(coords, coords[1:], strict=False):
+    for start, end in pairwise(coords):
         leg = _distance_m(start, end)
         if leg <= 0:
             continue

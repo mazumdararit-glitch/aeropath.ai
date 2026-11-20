@@ -23,9 +23,9 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from aeropath.schemas.common import (
-    AQCategory,
     Activity,
     Advisory,
+    AQCategory,
     RoadClass,
     Sensitivity,
 )

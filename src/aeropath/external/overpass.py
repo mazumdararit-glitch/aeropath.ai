@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from aeropath.schemas.common import Coordinate, RoadClass
+from aeropath.schemas.common import Coordinate
 
 logger = logging.getLogger(__name__)
 

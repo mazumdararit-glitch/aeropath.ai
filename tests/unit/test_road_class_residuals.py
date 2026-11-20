@@ -7,14 +7,13 @@ and (b) reading a large eta-squared as signal when class count alone inflates it
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
 from aeropath.schemas.common import Coordinate, RoadClass
-
-import sys
-from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(SCRIPTS) not in sys.path:

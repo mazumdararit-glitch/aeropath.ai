@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import statistics
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from aeropath.domain import cpcb_aqi
 from aeropath.domain.cpcb_aqi import InsufficientDataError
@@ -27,9 +27,8 @@ from aeropath.domain.national_aqi import AVERAGING_HOURS, rolling_aqi
 from aeropath.external.osrm import OsrmRouter, RoutingError
 from aeropath.external.provider import GridProvider, PointReading
 from aeropath.schemas.common import (
-    AQCategory,
     Activity,
-    Advisory,
+    AQCategory,
     Confidence,
     Coordinate,
     Sensitivity,

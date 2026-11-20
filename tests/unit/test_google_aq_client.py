@@ -7,7 +7,7 @@ the right window. These tests pin the wire contract without any network access.
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import httpx
 import pytest

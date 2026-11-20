@@ -6,9 +6,9 @@ transformation the Phase 0 harness validates, which is the point: accuracy
 measured in the harness is accuracy delivered here.
 
 The honest limitation, stated in every response rather than hidden: stations in
-Indian cities sit roughly 2–3 km apart at best, so IDW smooths away the
-sub-kilometre variation that Phase 0 measured as worth ±20–27%. Until there is a
-denser network or a real dispersion model, the product reports neighbourhood
+Indian cities sit roughly 2-3 km apart at best, so IDW smooths away the
+sub-kilometre variation that Phase 0 measured as worth +/-20-27%. Until there is
+a denser network or a real dispersion model, the product reports neighbourhood
 air, not street air.
 """
 

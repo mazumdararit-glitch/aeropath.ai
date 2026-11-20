@@ -40,7 +40,7 @@ import asyncio
 import json
 import statistics
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -51,8 +51,8 @@ if str(SRC) not in sys.path:
 
 from aeropath.domain import cpcb_aqi  # noqa: E402
 from aeropath.domain.cpcb_aqi import InsufficientDataError  # noqa: E402
+from aeropath.domain.grid import cell_for  # noqa: E402
 from aeropath.domain.interpolation import (  # noqa: E402
-    MAX_NEIGHBOUR_KM,
     haversine_km,
     interpolate,
 )
@@ -65,7 +65,6 @@ from aeropath.domain.metrics import (  # noqa: E402
     category_agreement,
     error_stats,
 )
-from aeropath.domain.grid import cell_for  # noqa: E402
 from aeropath.external.cpcb_stations import (  # noqa: E402
     Reading,
     Station,
@@ -73,8 +72,8 @@ from aeropath.external.cpcb_stations import (  # noqa: E402
     StationDataError,
     pivot_readings,
 )
-from aeropath.schemas.common import Coordinate, RoadClass  # noqa: E402
 from aeropath.external.osm_context import RoadContext  # noqa: E402
+from aeropath.schemas.common import Coordinate, RoadClass  # noqa: E402
 from aeropath.services.scoring import street_model  # noqa: E402
 from aeropath.services.scoring.street_model import StreetModelParams  # noqa: E402
 
@@ -172,8 +171,8 @@ def attach_osm_context(
     """
     import pickle
 
-    from aeropath.external.overpass import fetch
     from aeropath.external.osm_context import build_context
+    from aeropath.external.overpass import fetch
 
     cache_dir.mkdir(parents=True, exist_ok=True)
     # Keyed by the query, not a fixed name: a shared file meant a second city
@@ -370,11 +369,11 @@ def run_station_loo(
 
 def _stats_dict(stats: object) -> dict[str, object]:
     return {
-        "n": getattr(stats, "n"),
-        "mape": round(getattr(stats, "mape"), 2),
-        "bias": round(getattr(stats, "bias"), 2),
-        "rmse": round(getattr(stats, "rmse"), 3),
-        "excluded": getattr(stats, "excluded"),
+        "n": stats.n,
+        "mape": round(stats.mape, 2),
+        "bias": round(stats.bias, 2),
+        "rmse": round(stats.rmse, 3),
+        "excluded": stats.excluded,
     }
 
 
@@ -527,7 +526,7 @@ async def _validate_one(
                 cache_key=cache_key,
                 radius_m=args.osm_radius,
             )
-        except Exception as exc:  # noqa: BLE001 - OSM is a public, flaky service
+        except Exception as exc:
             print(
                 f"OSM context fetch failed ({type(exc).__name__}: {exc}). Road "
                 "context is the whole point of --osm; retry, or drop --osm to run "

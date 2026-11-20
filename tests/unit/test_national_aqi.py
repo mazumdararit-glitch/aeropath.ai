@@ -88,7 +88,7 @@ class TestRollingAqi:
             "SO2": _series(48, 20.0),
             "CO": _series(48, 1.0),
         }
-        with pytest.raises(InsufficientDataError, match="PM2.5 or PM10"):
+        with pytest.raises(InsufficientDataError, match=r"PM2\.5 or PM10"):
             rolling_aqi(only_gases, at=BASE + timedelta(hours=47))
 
     def test_short_window_is_excluded_not_shortened(self) -> None:

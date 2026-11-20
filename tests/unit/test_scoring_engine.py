@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from aeropath.schemas.common import AQCategory, Activity, Advisory, RoadClass, Sensitivity
+from aeropath.schemas.common import Activity, Advisory, AQCategory, RoadClass, Sensitivity
 from aeropath.services.scoring import engine
 from aeropath.services.scoring.engine import (
     DOSE_EQUIVALENCE_TOLERANCE,

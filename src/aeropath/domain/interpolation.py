@@ -106,7 +106,9 @@ def interpolate_point(
         target, stations, power=power, max_distance_km=max_distance_km
     )
     if not weights:
-        return InterpolatedPoint(concentrations={}, nearest_station_km=float("inf"), stations_used=0)
+        return InterpolatedPoint(
+            concentrations={}, nearest_station_km=float("inf"), stations_used=0
+        )
 
     distances = [haversine_km(target, stations[sid]) for sid in weights if sid in stations]
     nearest = min(distances) if distances else float("inf")

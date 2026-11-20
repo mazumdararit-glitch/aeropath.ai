@@ -9,17 +9,20 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from aeropath.api.main import create_app
-from aeropath.config import Settings, XKDR_SIGNUP_URL
+from aeropath.config import XKDR_SIGNUP_URL, Settings
 from aeropath.external.osrm import RoutingError
-from aeropath.schemas.common import Activity, Confidence, Coordinate
+from aeropath.schemas.common import (
+    Activity,
+    Advisory,
+    AQCategory,
+    Confidence,
+)
 from aeropath.services.planning import HourWindow, Plan, PlannedRoute
 from aeropath.services.scoring.engine import RouteScore
-from aeropath.schemas.common import AQCategory, Advisory, Sensitivity
 
 
 def _settings(**overrides: object) -> Settings:

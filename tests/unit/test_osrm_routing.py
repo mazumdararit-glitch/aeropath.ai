@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from aeropath.external.osrm import OsrmRouter, RoutingError, RouteGeometry
+from aeropath.external.osrm import OsrmRouter, RouteGeometry, RoutingError
 from aeropath.schemas.common import Coordinate
 from aeropath.services import routing
 
@@ -61,7 +61,10 @@ class TestOsrmRouter:
             return_value=httpx.Response(200, json=_route_payload([[1, 2], [3, 4]]))
         )
         async with OsrmRouter() as router:
-            await router.route(Coordinate(lat=28.6139, lng=77.2090), Coordinate(lat=28.63, lng=77.23))
+            await router.route(
+                Coordinate(lat=28.6139, lng=77.2090),
+                Coordinate(lat=28.63, lng=77.23),
+            )
         path = route.calls[0].request.url.path
         assert "77.209,28.6139" in path
 
@@ -135,7 +138,10 @@ class TestSegments:
     def test_consecutive_samples_in_one_cell_merge(self) -> None:
         """A short route inside one H3 cell must not produce hundreds of segments."""
         geometry = RouteGeometry(
-            coordinates=(Coordinate(lat=28.6000, lng=77.2000), Coordinate(lat=28.6002, lng=77.2000)),
+            coordinates=(
+                Coordinate(lat=28.6000, lng=77.2000),
+                Coordinate(lat=28.6002, lng=77.2000),
+            ),
             distance_m=22.0,
             duration_s=16.0,
         )

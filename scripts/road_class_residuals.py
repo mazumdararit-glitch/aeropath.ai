@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import random
 import sys
 from collections import defaultdict
@@ -44,14 +43,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+from aeropath.domain import cpcb_aqi  # noqa: E402
+from aeropath.domain.cpcb_aqi import InsufficientDataError  # noqa: E402
+from aeropath.schemas.common import RoadClass  # noqa: E402
 from phase0_validate import (  # noqa: E402
     attach_osm_context,
     collect_station_data,
     haversine_km,
 )
-from aeropath.domain import cpcb_aqi  # noqa: E402
-from aeropath.domain.cpcb_aqi import InsufficientDataError  # noqa: E402
-from aeropath.schemas.common import RoadClass  # noqa: E402
 
 # The order the model asserts: busier road, dirtier air.
 MODEL_ORDER = [
