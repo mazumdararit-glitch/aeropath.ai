@@ -1,7 +1,8 @@
 # Phase 0 — accuracy validation results
 
 **Status: gate FAILED.** The street-level model, as specified in PRD 9.3, is
-worse than doing nothing on the only data available today.
+worse than doing nothing on the only data available today. This now holds on a
+dense network, not just Kolkata's sparse one — see Finding 6.
 
 **Data:** CPCB CAAQM via XKDR Forum. Kolkata, 2024-11-01 → 2024-11-05. 7 CPCB stations, 951 station-hours, 826 comparable samples.
 **Method:** leave-one-out. Each station is hidden; its pollutant concentrations are interpolated from the remaining six by inverse-distance weighting; the street model is applied; both raw and adjusted are scored against the hidden station's own CPCB index.
@@ -14,7 +15,10 @@ worse than doing nothing on the only data available today.
 | Adjusted, no road context | 21.75% | 61.74% | 56.6 |
 | Adjusted, with OSM context | 25.12% | 55.45% | — |
 
-Gate requires category agreement ≥70% **and** adjusted MAPE ≤ raw −5%. Both fail, and adding real OSM road context made it **worse** (−25.9%).
+The gate requires a **gain over the raw baseline** (≥5 agreement points and
+≥5% MAPE), not an absolute category figure — see Finding 5 for why that changed.
+Both conditions fail, and adding real OSM road context made it **worse** (−10.5
+points, −25.9% MAPE).
 
 ---
 
@@ -70,16 +74,42 @@ Two caveats, both important:
 
 What the data does establish: **local context is worth ±20–27%**, which supports the product premise. What it does not establish: that road class is the right proxy for it.
 
-## Finding 5 — the 70% gate may be miscalibrated
+## Finding 5 — the gate was miscalibrated, and is now relative
 
 | Predictor | MAPE | Category agreement |
 |---|---|---|
 | Persistence (station's own recent mean) | 43.13% | 49.7% |
 | Neighbour IDW (same hour) | 20.63% | 65.6% |
 
-Spatial interpolation beats persistence by a wide margin, so the network is informative. But **raw interpolation itself only reaches 65.6%**. Requiring an adjustment to reach 70% absolute asks the model to beat the network's own spatial noise at 1 station per 30 km² (median nearest neighbour 2.24 km, max 5.96 km).
+Spatial interpolation beats persistence by a wide margin, so the network is informative. But **raw interpolation itself only reaches ~66%** on Kolkata and ~68% on Delhi. Requiring an adjustment to reach 70% absolute asks the model to beat the network's own spatial noise at 1 station per 30 km² (median nearest neighbour 2.24 km, max 5.96 km).
 
-**Recommendation:** express the gate **relative to the raw baseline** — e.g. "improves category agreement by ≥5 points and MAPE by ≥5% relative" — rather than an absolute 70%. Both plans in this repo specified an absolute number without checking what the baseline can reach.
+**Changed.** The gate now asks for a *gain over the raw baseline*, scored on the same samples: ≥5 category-agreement points and ≥5% MAPE reduction. A floor of 50% baseline agreement marks a run `INCONCLUSIVE` rather than `PASS`, so beating a useless baseline cannot manufacture a win. Two of the six cities measured fall below that floor.
+
+## Finding 6 — the failure reproduces on a dense network
+
+Kolkata has 7 stations, which Finding 4 called too few to fit road factors. Delhi has 39 — a 5.5× denser network. If the model's failure were an artifact of sparse data, Delhi should show it.
+
+| City | Stations | Samples | Raw agreement | Adjusted | Gain | ΔMAPE |
+|---|---|---|---|---|---|---|
+| Delhi | 39 | 1800 | 70.8% | 69.2% | −1.6 pts | −8.0% |
+| Mumbai | 30 | 1173 | 52.3% | 52.2% | −0.2 pts | −2.1% |
+| Bengaluru | 14 | 610 | 50.5% | 49.3% | −1.1 pts | −1.1% |
+| Hyderabad | 14 | 576 | 49.0% | 49.3% | +0.4 pts | +0.1% |
+| Pune | 9 | 304 | 50.3% | 48.7% | −1.6 pts | −1.9% |
+| Ahmedabad | 8 | 370 | 49.7% | 49.7% | 0.0 pts | −3.2% |
+
+No city passes. Without road context the model is a uniform multiplier, which by Finding 2 cannot reorder anything, so these numbers are pure added error — the expected result, and the control.
+
+Delhi **with** real OSM road context (39/39 stations resolved) is the informative row: **−7.0 points, −7.3% MAPE**. Density did not rescue the model, so the conclusions in Findings 3 and 4 hold.
+
+## Finding 7 — the harness was silently dropping stations
+
+Two bugs meant earlier numbers were computed on a subset of the network while appearing complete:
+
+* **Silent truncation.** The station endpoint caps at 10k rows and applies the cap *after ordering*, so a 5-day Delhi query returned **15 of 39 stations** with HTTP 200. Fixed by paging by day and splitting the parameter list if a single day still exceeds the cap; a query that still truncates now raises.
+* **Shared OSM cache.** The cache filename was hardcoded to `kolkata`, so any second city silently reused Kolkata's road geometries. Fixed by keying the file on the query.
+
+Separately, an `--osm` run that resolved no context used to continue and report a neutral result as if it were a test. It now aborts.
 
 ---
 
@@ -88,12 +118,11 @@ Spatial interpolation beats persistence by a wide margin, so the network is info
 - **CPCB AQI from concentrations**, tested at every published band edge (`domain/cpcb_aqi.py`, 30 tests). Verified: 30 µg/m³ → 50, 60 → 100, 90 → 200, saturation at 500, three-pollutant minimum, PM2.5/PM10 requirement.
 - **Scoring engine** — pure, deterministic, no I/O. `mean_aqi` drives colour, `dose` drives ranking, ±5% tiebreak, missing cells excluded rather than zeroed (`services/scoring/engine.py`).
 - **Street model** — concentration-based, ±40% cap, every factor returned for the planner to cite (`services/scoring/street_model.py`).
-- **Metrics and the gate** — MAPE with a near-zero floor, bias, RMSE, category confusion matrix ranked by two-band misses, gate verdict logic (`domain/metrics.py`).
-- **Providers** — Google Air Quality pinned to `ind_cpcb` with page counting; CPCB stations; point-local Overpass road context.
-- **225 unit tests passing.**
+- **Metrics and the gate** — MAPE with a near-zero floor, bias, RMSE, category confusion matrix ranked by two-band misses, relative gate verdict logic (`domain/metrics.py`).
+- **Providers** — Google Air Quality pinned to `ind_cpcb`, with `history:lookup` for the validation window and page counting; CPCB stations with truncation-safe day paging; point-local Overpass road context.
+- **Nationwide validation** — `cities --all-cities` walks every city in the dataset (247 cities, 558 stations), densest network first.
+- **252 unit tests passing.**
 
 ## What is blocked
 
-The real gate needs the provider grid, which needs a Google Air Quality key and the ingestion path. Everything above is honest about being an interpolation test, and every output says so.
-
-**Recommended next step:** get a Google Air Quality key, run the provider comparison, and re-decide the gate threshold against a baseline that is not built from stations.
+The real gate needs the provider grid, which needs a Google Air Quality key and the ingestion path. The client now implements `history:lookup`, which is the endpoint the comparison requires, but it cannot be exercised without a key. Everything above is honest about being an interpolation test, and every output says so.

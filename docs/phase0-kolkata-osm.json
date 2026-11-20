@@ -1,0 +1,155 @@
+{
+  "mode": "station-loo",
+  "gate": {
+    "verdict": "FAIL: category agreement gain -10.5pts < 5pts; MAPE improvement -25.9% < 5%",
+    "passed": false,
+    "samples": 826,
+    "category_agreement": 0.5545,
+    "raw_category_agreement": 0.6598,
+    "category_gain_pts": -10.53,
+    "adjusted_mape": 25.12,
+    "raw_mape": 19.96,
+    "relative_improvement_pct": -25.87,
+    "baseline_informative": true
+  },
+  "raw": {
+    "n": 826,
+    "mape": 19.96,
+    "bias": 2.98,
+    "rmse": 52.018,
+    "excluded": 0
+  },
+  "adjusted": {
+    "n": 826,
+    "mape": 25.12,
+    "bias": -15.02,
+    "rmse": 71.006,
+    "excluded": 0
+  },
+  "category_agreement": {
+    "adjusted": 0.5545,
+    "raw": 0.6598,
+    "worst_confusions": [
+      {
+        "predicted": "satisfactory",
+        "actual": "severe",
+        "count": 1
+      },
+      {
+        "predicted": "satisfactory",
+        "actual": "very_poor",
+        "count": 3
+      },
+      {
+        "predicted": "moderate",
+        "actual": "very_poor",
+        "count": 31
+      },
+      {
+        "predicted": "satisfactory",
+        "actual": "poor",
+        "count": 8
+      },
+      {
+        "predicted": "poor",
+        "actual": "severe",
+        "count": 3
+      },
+      {
+        "predicted": "moderate",
+        "actual": "poor",
+        "count": 120
+      },
+      {
+        "predicted": "satisfactory",
+        "actual": "moderate",
+        "count": 107
+      },
+      {
+        "predicted": "moderate",
+        "actual": "satisfactory",
+        "count": 37
+      },
+      {
+        "predicted": "very_poor",
+        "actual": "severe",
+        "count": 29
+      },
+      {
+        "predicted": "poor",
+        "actual": "moderate",
+        "count": 17
+      }
+    ]
+  },
+  "stations": {
+    "count": 7,
+    "with_road_context": 7,
+    "road_classes": {
+      "site_5238": "residential",
+      "site_5129": "tertiary",
+      "site_5110": "service",
+      "site_5111": "service",
+      "site_296": "residential",
+      "site_5126": "service",
+      "site_309": "secondary"
+    }
+  },
+  "per_station_mape": {
+    "site_5238": {
+      "n": 118,
+      "raw_mape": 23.72,
+      "adjusted_mape": 38.03
+    },
+    "site_5129": {
+      "n": 119,
+      "raw_mape": 16.87,
+      "adjusted_mape": 19.1
+    },
+    "site_5110": {
+      "n": 117,
+      "raw_mape": 13.91,
+      "adjusted_mape": 20.25
+    },
+    "site_5111": {
+      "n": 117,
+      "raw_mape": 16.18,
+      "adjusted_mape": 37.02
+    },
+    "site_296": {
+      "n": 119,
+      "raw_mape": 27.54,
+      "adjusted_mape": 22.82
+    },
+    "site_5126": {
+      "n": 117,
+      "raw_mape": 25.92,
+      "adjusted_mape": 20.42
+    },
+    "site_309": {
+      "n": 119,
+      "raw_mape": 15.53,
+      "adjusted_mape": 18.33
+    }
+  },
+  "skipped": {
+    "interpolation": 0,
+    "aqi": 8
+  },
+  "disclaimer": "station-loo validates the adjustment against station-to-station interpolation, not against the provider's 500 m grid. It does not replace the provider gate.",
+  "grid_survey": {
+    "resolution": 8,
+    "stations": 7,
+    "station_cells": 7,
+    "median_nearest_station_km": 2.24,
+    "max_nearest_station_km": 5.96
+  },
+  "model_version": "rules_v1",
+  "generated_at": "2026-11-20T18:32:27.539011+00:00",
+  "city": "Kolkata",
+  "days": 5,
+  "period": {
+    "start": "2024-11-01",
+    "end": "2024-11-05"
+  }
+}

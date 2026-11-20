@@ -1,0 +1,86 @@
+{
+  "mode": "cities",
+  "generated_at": "2026-11-20T18:22:18.323514+00:00",
+  "period": {
+    "start": "2024-11-01",
+    "end": "2024-11-02"
+  },
+  "days": 2,
+  "state": null,
+  "model_version": "rules_v1",
+  "with_osm": false,
+  "cities": [
+    {
+      "city": "Delhi",
+      "stations": 39,
+      "samples": 1800,
+      "verdict": "FAIL: category agreement gain -1.6pts < 5pts; MAPE improvement -8.0% < 5%",
+      "passed": false,
+      "raw_category_agreement": 0.7078,
+      "category_agreement": 0.6917,
+      "raw_mape": 14.55,
+      "adjusted_mape": 15.72,
+      "relative_improvement_pct": -8.02
+    },
+    {
+      "city": "Mumbai",
+      "stations": 30,
+      "samples": 1173,
+      "verdict": "FAIL: category agreement gain -0.2pts < 5pts; MAPE improvement -2.1% < 5%",
+      "passed": false,
+      "raw_category_agreement": 0.5234,
+      "category_agreement": 0.5217,
+      "raw_mape": 40.69,
+      "adjusted_mape": 41.54,
+      "relative_improvement_pct": -2.1
+    },
+    {
+      "city": "Bengaluru",
+      "stations": 14,
+      "samples": 610,
+      "verdict": "FAIL: category agreement gain -1.1pts < 5pts; MAPE improvement -1.1% < 5%",
+      "passed": false,
+      "raw_category_agreement": 0.5049,
+      "category_agreement": 0.4934,
+      "raw_mape": 35.07,
+      "adjusted_mape": 35.46,
+      "relative_improvement_pct": -1.1
+    },
+    {
+      "city": "Hyderabad",
+      "stations": 14,
+      "samples": 576,
+      "verdict": "INCONCLUSIVE: raw baseline agreement 49.0% < 50%; a relative gain against a baseline this weak would not be meaningful",
+      "passed": false,
+      "raw_category_agreement": 0.4896,
+      "category_agreement": 0.4931,
+      "raw_mape": 40.31,
+      "adjusted_mape": 40.28,
+      "relative_improvement_pct": 0.07
+    },
+    {
+      "city": "Pune",
+      "stations": 9,
+      "samples": 304,
+      "verdict": "FAIL: category agreement gain -1.6pts < 5pts; MAPE improvement -1.9% < 5%",
+      "passed": false,
+      "raw_category_agreement": 0.5033,
+      "category_agreement": 0.4868,
+      "raw_mape": 35.37,
+      "adjusted_mape": 36.04,
+      "relative_improvement_pct": -1.9
+    },
+    {
+      "city": "Ahmedabad",
+      "stations": 8,
+      "samples": 370,
+      "verdict": "INCONCLUSIVE: raw baseline agreement 49.7% < 50%; a relative gain against a baseline this weak would not be meaningful",
+      "passed": false,
+      "raw_category_agreement": 0.4973,
+      "category_agreement": 0.4973,
+      "raw_mape": 44.28,
+      "adjusted_mape": 45.7,
+      "relative_improvement_pct": -3.2
+    }
+  ]
+}

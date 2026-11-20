@@ -115,7 +115,8 @@ class TestCategoryAgreement:
 class TestGate:
     def test_passes_when_both_conditions_hold(self) -> None:
         gate = GateResult(
-            category_agreement=0.85,
+            category_agreement=0.78,
+            raw_category_agreement=0.66,
             adjusted_mape=18.0,
             raw_mape=25.0,
             samples=500,
@@ -126,18 +127,20 @@ class TestGate:
     def test_fails_on_category_even_with_better_mape(self) -> None:
         """A more accurate number the user still sees as the wrong colour fails."""
         gate = GateResult(
-            category_agreement=0.55,
+            category_agreement=0.60,
+            raw_category_agreement=0.66,
             adjusted_mape=10.0,
             raw_mape=25.0,
             samples=500,
         )
         assert not gate.passed
-        assert "category agreement" in gate.verdict()
+        assert "category agreement gain" in gate.verdict()
 
     def test_fails_without_beating_raw(self) -> None:
         """A model that is merely different cannot ship as if it were better."""
         gate = GateResult(
             category_agreement=0.90,
+            raw_category_agreement=0.66,
             adjusted_mape=24.0,
             raw_mape=25.0,
             samples=500,
@@ -145,18 +148,61 @@ class TestGate:
         assert not gate.passed
         assert "MAPE improvement" in gate.verdict()
 
+    def test_category_gate_is_relative_to_baseline(self) -> None:
+        """The old absolute 70% target failed models the baseline could not hit.
+
+        A raw baseline of 66% with an adjusted 71% is a 5-point gain and must
+        pass, even though it is below the old absolute 70%... which it clears.
+        The real regression guard is the reverse: 69% against a 66% baseline is
+        a 3-point gain and must fail despite being near that absolute number.
+        """
+        near_absolute = GateResult(
+            category_agreement=0.69,
+            raw_category_agreement=0.66,
+            adjusted_mape=20.0,
+            raw_mape=25.0,
+            samples=500,
+        )
+        assert near_absolute.category_gain == pytest.approx(0.03)
+        assert not near_absolute.passed
+        assert "category agreement gain" in near_absolute.verdict()
+
+    def test_low_baseline_is_inconclusive_not_pass(self) -> None:
+        """Beating a useless baseline proves nothing, however large the gain."""
+        gate = GateResult(
+            category_agreement=0.45,
+            raw_category_agreement=0.20,
+            adjusted_mape=10.0,
+            raw_mape=40.0,
+            samples=500,
+        )
+        assert not gate.passed
+        assert "INCONCLUSIVE" in gate.verdict()
+        assert "baseline" in gate.verdict()
+
     def test_improvement_arithmetic(self) -> None:
-        gate = GateResult(category_agreement=0.9, adjusted_mape=20.0, raw_mape=25.0)
+        gate = GateResult(
+            category_agreement=0.9,
+            raw_category_agreement=0.6,
+            adjusted_mape=20.0,
+            raw_mape=25.0,
+        )
         assert gate.improvement == pytest.approx(20.0)
 
     def test_no_samples_is_inconclusive(self) -> None:
-        gate = GateResult(category_agreement=0.0, adjusted_mape=0.0, raw_mape=0.0)
+        gate = GateResult(
+            category_agreement=0.0,
+            raw_category_agreement=0.0,
+            adjusted_mape=0.0,
+            raw_mape=0.0,
+        )
         assert not gate.passed
         assert "INCONCLUSIVE" in gate.verdict()
 
     def test_both_failures_reported(self) -> None:
         gate = GateResult(
             category_agreement=0.10,
+            raw_category_agreement=0.66,
             adjusted_mape=99.0,
             raw_mape=25.0,
             samples=10,

@@ -1,0 +1,307 @@
+{
+  "mode": "station-loo",
+  "gate": {
+    "verdict": "FAIL: category agreement gain -3.3pts < 5pts; MAPE improvement -8.2% < 5%",
+    "passed": false,
+    "samples": 2736,
+    "category_agreement": 0.6469,
+    "raw_category_agreement": 0.6802,
+    "category_gain_pts": -3.33,
+    "adjusted_mape": 15.06,
+    "raw_mape": 13.92,
+    "relative_improvement_pct": -8.16,
+    "baseline_informative": true
+  },
+  "raw": {
+    "n": 2736,
+    "mape": 13.92,
+    "bias": 3.14,
+    "rmse": 60.058,
+    "excluded": 0
+  },
+  "adjusted": {
+    "n": 2736,
+    "mape": 15.06,
+    "bias": 3.98,
+    "rmse": 62.717,
+    "excluded": 0
+  },
+  "category_agreement": {
+    "adjusted": 0.6469,
+    "raw": 0.6802,
+    "worst_confusions": [
+      {
+        "predicted": "severe",
+        "actual": "moderate",
+        "count": 7
+      },
+      {
+        "predicted": "moderate",
+        "actual": "severe",
+        "count": 1
+      },
+      {
+        "predicted": "very_poor",
+        "actual": "moderate",
+        "count": 37
+      },
+      {
+        "predicted": "severe",
+        "actual": "poor",
+        "count": 36
+      },
+      {
+        "predicted": "poor",
+        "actual": "severe",
+        "count": 7
+      },
+      {
+        "predicted": "moderate",
+        "actual": "very_poor",
+        "count": 5
+      },
+      {
+        "predicted": "very_poor",
+        "actual": "severe",
+        "count": 351
+      },
+      {
+        "predicted": "severe",
+        "actual": "very_poor",
+        "count": 223
+      },
+      {
+        "predicted": "very_poor",
+        "actual": "poor",
+        "count": 166
+      },
+      {
+        "predicted": "poor",
+        "actual": "very_poor",
+        "count": 50
+      }
+    ]
+  },
+  "stations": {
+    "count": 39,
+    "with_road_context": 0,
+    "road_classes": {}
+  },
+  "per_station_mape": {
+    "site_5024": {
+      "n": 72,
+      "raw_mape": 6.15,
+      "adjusted_mape": 8.57
+    },
+    "site_1420": {
+      "n": 68,
+      "raw_mape": 5.37,
+      "adjusted_mape": 7.72
+    },
+    "site_108": {
+      "n": 72,
+      "raw_mape": 12.5,
+      "adjusted_mape": 15.06
+    },
+    "site_1560": {
+      "n": 72,
+      "raw_mape": 8.62,
+      "adjusted_mape": 8.62
+    },
+    "site_104": {
+      "n": 72,
+      "raw_mape": 10.52,
+      "adjusted_mape": 11.64
+    },
+    "site_103": {
+      "n": 72,
+      "raw_mape": 9.54,
+      "adjusted_mape": 10.9
+    },
+    "site_118": {
+      "n": 72,
+      "raw_mape": 47.88,
+      "adjusted_mape": 49.64
+    },
+    "site_1422": {
+      "n": 72,
+      "raw_mape": 11.01,
+      "adjusted_mape": 10.15
+    },
+    "site_106": {
+      "n": 72,
+      "raw_mape": 10.01,
+      "adjusted_mape": 12.43
+    },
+    "site_114": {
+      "n": 72,
+      "raw_mape": 35.14,
+      "adjusted_mape": 37.19
+    },
+    "site_117": {
+      "n": 72,
+      "raw_mape": 12.46,
+      "adjusted_mape": 13.08
+    },
+    "site_1423": {
+      "n": 69,
+      "raw_mape": 9.51,
+      "adjusted_mape": 8.03
+    },
+    "site_1424": {
+      "n": 72,
+      "raw_mape": 10.63,
+      "adjusted_mape": 11.98
+    },
+    "site_5395": {
+      "n": 61,
+      "raw_mape": 15.03,
+      "adjusted_mape": 13.78
+    },
+    "site_109": {
+      "n": 61,
+      "raw_mape": 14.73,
+      "adjusted_mape": 16.75
+    },
+    "site_1425": {
+      "n": 72,
+      "raw_mape": 8.03,
+      "adjusted_mape": 9.93
+    },
+    "site_1561": {
+      "n": 72,
+      "raw_mape": 8.71,
+      "adjusted_mape": 9.01
+    },
+    "site_115": {
+      "n": 72,
+      "raw_mape": 15.79,
+      "adjusted_mape": 16.53
+    },
+    "site_1427": {
+      "n": 72,
+      "raw_mape": 18.77,
+      "adjusted_mape": 20.19
+    },
+    "site_1426": {
+      "n": 72,
+      "raw_mape": 12.05,
+      "adjusted_mape": 12.55
+    },
+    "site_105": {
+      "n": 72,
+      "raw_mape": 9.65,
+      "adjusted_mape": 11.8
+    },
+    "site_125": {
+      "n": 72,
+      "raw_mape": 7.64,
+      "adjusted_mape": 10.36
+    },
+    "site_107": {
+      "n": 72,
+      "raw_mape": 14.53,
+      "adjusted_mape": 16.15
+    },
+    "site_1563": {
+      "n": 72,
+      "raw_mape": 14.89,
+      "adjusted_mape": 15.37
+    },
+    "site_124": {
+      "n": 72,
+      "raw_mape": 10.7,
+      "adjusted_mape": 10.78
+    },
+    "site_1430": {
+      "n": 69,
+      "raw_mape": 12.63,
+      "adjusted_mape": 13.2
+    },
+    "site_113": {
+      "n": 72,
+      "raw_mape": 17.1,
+      "adjusted_mape": 17.66
+    },
+    "site_119": {
+      "n": 72,
+      "raw_mape": 4.82,
+      "adjusted_mape": 6.87
+    },
+    "site_1432": {
+      "n": 71,
+      "raw_mape": 11.07,
+      "adjusted_mape": 12.78
+    },
+    "site_1562": {
+      "n": 72,
+      "raw_mape": 37.19,
+      "adjusted_mape": 39.45
+    },
+    "site_1434": {
+      "n": 70,
+      "raw_mape": 7.63,
+      "adjusted_mape": 7.45
+    },
+    "site_301": {
+      "n": 71,
+      "raw_mape": 17.48,
+      "adjusted_mape": 17.52
+    },
+    "site_1421": {
+      "n": 71,
+      "raw_mape": 11.08,
+      "adjusted_mape": 11.79
+    },
+    "site_5393": {
+      "n": 70,
+      "raw_mape": 32.45,
+      "adjusted_mape": 34.36
+    },
+    "site_122": {
+      "n": 70,
+      "raw_mape": 8.96,
+      "adjusted_mape": 11.83
+    },
+    "site_1429": {
+      "n": 50,
+      "raw_mape": 12.43,
+      "adjusted_mape": 12.62
+    },
+    "site_1428": {
+      "n": 70,
+      "raw_mape": 7.06,
+      "adjusted_mape": 8.73
+    },
+    "site_1431": {
+      "n": 70,
+      "raw_mape": 9.72,
+      "adjusted_mape": 9.32
+    },
+    "site_1435": {
+      "n": 67,
+      "raw_mape": 12.37,
+      "adjusted_mape": 13.84
+    }
+  },
+  "skipped": {
+    "interpolation": 11,
+    "aqi": 30
+  },
+  "disclaimer": "station-loo validates the adjustment against station-to-station interpolation, not against the provider's 500 m grid. It does not replace the provider gate.",
+  "grid_survey": {
+    "resolution": 8,
+    "stations": 39,
+    "station_cells": 37,
+    "median_nearest_station_km": 2.97,
+    "max_nearest_station_km": 10.57
+  },
+  "model_version": "rules_v1",
+  "generated_at": "2026-11-20T18:21:27.472859+00:00",
+  "city": "Delhi",
+  "days": 3,
+  "period": {
+    "start": "2024-11-01",
+    "end": "2024-11-03"
+  }
+}

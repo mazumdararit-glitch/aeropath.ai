@@ -126,18 +126,25 @@ def interpolate(values: dict[str, float], weights: dict[str, float]) -> float | 
 
 
 async def collect_station_data(
-    city: str,
+    city: str | None = None,
     *,
+    state: str | None = None,
     start: date,
     end: date,
     api_key: str | None = None,
 ) -> tuple[list[Station], dict[tuple[str, datetime], dict[str, float]]]:
     kwargs = {"api_key": api_key} if api_key else {}
     async with StationClient(**kwargs) as client:  # type: ignore[arg-type]
-        stations = await client.stations(city=city)
+        if city:
+            stations = await client.stations(city=city)
+        elif state:
+            stations = await client.stations(state=state)
+        else:
+            stations = await client.stations()
         cpcb = [s for s in stations if s.source == "cpcb_caaqm"]
         readings: list[Reading] = await client.measurements(
             city=city,
+            state=state,
             parameters=AQI_PARAMETERS,
             start=start,
             end=end,
@@ -162,7 +169,11 @@ def station_road_context(
 
 
 def attach_osm_context(
-    stations: list[Station], *, cache_dir: Path, radius_m: int = 150
+    stations: list[Station],
+    *,
+    cache_dir: Path,
+    cache_key: str,
+    radius_m: int = 150,
 ) -> dict[str, RoadContext]:
     """Road class and proximity for each station, from OpenStreetMap.
 
@@ -177,7 +188,10 @@ def attach_osm_context(
     from aeropath.external.osm_context import build_context
 
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_file = cache_dir / "kolkata_station_context.pkl"
+    # Keyed by the query, not a fixed name: a shared file meant a second city
+    # silently reused the first city's roads.
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in cache_key)
+    cache_file = cache_dir / f"{safe_key}_r{radius_m}.pkl"
 
     points = {s.station_id: s.coordinate for s in stations}
 
@@ -235,7 +249,7 @@ def run_station_loo(
 
     per_station: dict[str, dict[str, float]] = {}
     skipped = {"interpolation": 0, "aqi": 0}
-    adjusted_with_road_context = 0
+    stations_with_road_context: set[str] = set()
 
     for hour, readings_by_station in by_hour.items():
         for station in stations:
@@ -286,7 +300,7 @@ def run_station_loo(
                 water_distance_m=context.water_distance_m if context else None,
             )
             if road_class is not RoadClass.UNKNOWN:
-                adjusted_with_road_context += 1
+                stations_with_road_context.add(station.station_id)
             try:
                 adjusted = cpcb_aqi.compute(scaled).aqi
             except InsufficientDataError:
@@ -314,6 +328,7 @@ def run_station_loo(
         category_agreement=adjusted_agreement.rate,
         adjusted_mape=adjusted_stats.mape,
         raw_mape=raw_stats.mape,
+        raw_category_agreement=raw_agreement.rate,
         samples=adjusted_stats.n,
     )
 
@@ -324,9 +339,12 @@ def run_station_loo(
             "passed": gate.passed,
             "samples": gate.samples,
             "category_agreement": round(adjusted_agreement.rate, 4),
+            "raw_category_agreement": round(raw_agreement.rate, 4),
+            "category_gain_pts": round(gate.category_gain * 100, 2),
             "adjusted_mape": round(adjusted_stats.mape, 2),
             "raw_mape": round(raw_stats.mape, 2),
             "relative_improvement_pct": round(gate.improvement, 2),
+            "baseline_informative": gate.baseline_informative,
         },
         "raw": _stats_dict(raw_stats),
         "adjusted": _stats_dict(adjusted_stats),
@@ -340,7 +358,7 @@ def run_station_loo(
         },
         "stations": {
             "count": len(stations),
-            "with_road_context": adjusted_with_road_context,
+            "with_road_context": len(stations_with_road_context),
             "road_classes": {
                 sid: ctx.road_class.value for sid, ctx in contexts.items()
             },
@@ -397,8 +415,20 @@ def grid_survey(stations: list[Station], *, resolution: int = 8) -> dict[str, ob
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["station-loo", "provider"])
-    parser.add_argument("--city", default="Kolkata")
+    parser.add_argument("mode", choices=["station-loo", "provider", "cities"])
+    parser.add_argument(
+        "--city",
+        default=None,
+        help="city to validate (default: Kolkata). Repeat via --city for several.",
+        action="append",
+    )
+    parser.add_argument("--state", default=None, help="validate every city in a state")
+    parser.add_argument(
+        "--all-cities",
+        action="store_true",
+        help="validate every city in the dataset, densest network first",
+    )
+    parser.add_argument("--min-stations", type=int, default=4)
     parser.add_argument("--days", type=int, default=14)
     parser.add_argument(
         "--start", default=None, help="YYYY-MM-DD (default: --days before --end)"
@@ -414,7 +444,7 @@ async def main() -> int:
     parser.add_argument(
         "--osm", action="store_true", help="load OSM road context (slow, needed for a real test)"
     )
-    parser.add_argument("--osm-radius", type=int, default=3000)
+    parser.add_argument("--osm-radius", type=int, default=150, help="road query radius, metres")
     parser.add_argument("--osm-cache", default="scratch/osm_cache")
     args = parser.parse_args()
 
@@ -429,15 +459,19 @@ async def main() -> int:
             file=sys.stderr,
         )
         print(
-            "Run station-loo for the methodology check that works today.",
+            "Run station-loo or cities for the methodology check that works today.",
             file=sys.stderr,
         )
         return 2
 
-    print(f"Fetching {days} days of CPCB data for {args.city} ({start} to {end})...", file=sys.stderr)
+    if args.mode == "cities":
+        return await _run_cities(args, start=start, end=end, days=days)
+
+    city = args.city[0] if args.city else "Kolkata"
+    print(f"Fetching {days} days of CPCB data for {city} ({start} to {end})...", file=sys.stderr)
     try:
         stations, grouped = await collect_station_data(
-            args.city, start=start, end=end, api_key=args.api_key
+            city, start=start, end=end, api_key=args.api_key
         )
     except StationDataError as exc:
         print(f"station data unavailable: {exc}", file=sys.stderr)
@@ -449,40 +483,22 @@ async def main() -> int:
         return 2
 
     if not stations:
-        print(f"no CPCB stations found for {args.city}", file=sys.stderr)
+        print(f"no CPCB stations found for {city}", file=sys.stderr)
         return 2
 
     print(f"{len(stations)} CPCB stations, {len(grouped)} station-hours", file=sys.stderr)
 
-    # Before any adjustment can be judged, ask whether the network can support
-    # the grid at all. A sparse network bounds confidence for most cells.
-    survey = grid_survey(stations, resolution=args.resolution)
-    print(f"grid survey: {survey}", file=sys.stderr)
-
-    # Road context is what makes the street model anything other than a uniform
-    # multiplier, and a uniform multiplier can never change a ranking.
-    contexts: dict[str, RoadContext] = {}
-    if args.osm:
-        print("Loading OSM road context (slow, cached after first run)...", file=sys.stderr)
-        try:
-            contexts = attach_osm_context(
-                stations, cache_dir=Path(args.osm_cache), radius_m=args.osm_radius
-            )
-        except Exception as exc:  # noqa: BLE001 - OSM is best-effort
-            print(f"WARNING: OSM context unavailable ({exc}); continuing without it", file=sys.stderr)
-    else:
-        print("No --osm flag: road context is UNKNOWN and the model is a no-op.", file=sys.stderr)
-
-    with_context = sum(1 for c in contexts.values() if c.road_class is not RoadClass.UNKNOWN)
-    print(f"road context resolved for {with_context}/{len(stations)} stations", file=sys.stderr)
-
-    results = run_station_loo(
-        stations, grouped, params=street_model.DEFAULT_MODEL, contexts=contexts
+    results = await _validate_one(
+        city=city,
+        stations=stations,
+        grouped=grouped,
+        args=args,
+        cache_key=f"city_{city}",
     )
-    results["grid_survey"] = survey
-    results["model_version"] = street_model.DEFAULT_MODEL.version
+    if "error" in results:
+        return 2
     results["generated_at"] = datetime.now(UTC).isoformat()
-    results["city"] = args.city
+    results["city"] = city
     results["days"] = days
     results["period"] = {"start": start.isoformat(), "end": end.isoformat()}
 
@@ -500,6 +516,167 @@ async def main() -> int:
         return 2
     print(f"\nGATE: {gate['verdict']}", file=sys.stderr)
     return 0 if gate.get("passed") else 1
+
+
+async def _validate_one(
+    *,
+    city: str,
+    stations: list[Station],
+    grouped: dict[tuple[str, datetime], dict[str, float]],
+    args: argparse.Namespace,
+    cache_key: str,
+) -> dict[str, object]:
+    survey = grid_survey(stations, resolution=args.resolution)
+    print(f"grid survey: {survey}", file=sys.stderr)
+
+    contexts: dict[str, RoadContext] = {}
+    if args.osm:
+        print("Loading OSM road context (slow, cached after first run)...", file=sys.stderr)
+        try:
+            contexts = attach_osm_context(
+                stations,
+                cache_dir=Path(args.osm_cache),
+                cache_key=cache_key,
+                radius_m=args.osm_radius,
+            )
+        except Exception as exc:  # noqa: BLE001 - OSM is a public, flaky service
+            print(
+                f"OSM context fetch failed ({type(exc).__name__}: {exc}). Road "
+                "context is the whole point of --osm; retry, or drop --osm to run "
+                "the no-context variant deliberately.",
+                file=sys.stderr,
+            )
+            return {"error": "osm_fetch_failed", "detail": str(exc)}
+    else:
+        print("No --osm flag: road context is UNKNOWN and the model is a no-op.", file=sys.stderr)
+
+    with_context = sum(1 for c in contexts.values() if c.road_class is not RoadClass.UNKNOWN)
+    print(f"road context resolved for {with_context}/{len(stations)} stations", file=sys.stderr)
+
+    # An --osm run that resolved nothing is not a test of the street model: the
+    # model degenerates to a uniform multiplier, which Finding 2 shows cannot
+    # reorder anything. Say so rather than reporting it as a real result.
+    if args.osm and with_context == 0:
+        print(
+            "ERROR: --osm was requested but no road context resolved. The street "
+            "model would be a uniform multiplier and this run would not test it.",
+            file=sys.stderr,
+        )
+        return {"error": "osm_context_unavailable", "stations": len(stations)}
+    if args.osm and with_context < len(stations):
+        print(
+            f"WARNING: road context missing for {len(stations) - with_context} "
+            "stations; those use neutral factors and understate the model.",
+            file=sys.stderr,
+        )
+
+    results = run_station_loo(
+        stations, grouped, params=street_model.DEFAULT_MODEL, contexts=contexts
+    )
+    results["grid_survey"] = survey
+    results["model_version"] = street_model.DEFAULT_MODEL.version
+    return results
+
+
+async def _run_cities(
+    args: argparse.Namespace, *, start: date, end: date, days: int
+) -> int:
+    """Validate city by city across the network, densest first."""
+    try:
+        async with StationClient(**({"api_key": args.api_key} if args.api_key else {})) as client:  # type: ignore[arg-type]
+            all_stations = (
+                await client.stations(state=args.state)
+                if args.state
+                else await client.stations()
+            )
+    except StationDataError as exc:
+        print(f"station list unavailable: {exc}", file=sys.stderr)
+        return 2
+
+    cpcb = [s for s in all_stations if s.source == "cpcb_caaqm" and s.city]
+    if args.city:
+        wanted = {c.lower() for c in args.city}
+        cpcb = [s for s in cpcb if (s.city or "").lower() in wanted]
+
+    by_city: dict[str, list[Station]] = {}
+    for station in cpcb:
+        assert station.city is not None
+        by_city.setdefault(station.city, []).append(station)
+
+    ranked = sorted(by_city.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    if not args.all_cities and not args.city:
+        print(
+            "warning: no --city given; this runs every city. Pass --all-cities to "
+            "confirm the intent.",
+            file=sys.stderr,
+        )
+    eligible = [(c, s) for c, s in ranked if len(s) >= args.min_stations]
+    print(
+        f"{len(by_city)} cities with CPCB stations, {len(eligible)} with "
+        f">= {args.min_stations} stations ({days} days each)",
+        file=sys.stderr,
+    )
+
+    summaries: list[dict[str, object]] = []
+    for index, (city, stations) in enumerate(eligible, start=1):
+        print(f"\n[{index}/{len(eligible)}] {city} ({len(stations)} stations)", file=sys.stderr)
+        try:
+            _, grouped = await collect_station_data(
+                city, start=start, end=end, api_key=args.api_key
+            )
+            result = await _validate_one(
+                city=city,
+                stations=stations,
+                grouped=grouped,
+                args=args,
+                cache_key=f"city_{city}",
+            )
+        except StationDataError as exc:
+            print(f"  skipped: {exc}", file=sys.stderr)
+            continue
+
+        if "error" in result:
+            print(f"  skipped: {result['error']}", file=sys.stderr)
+            continue
+
+        gate = result["gate"]
+        assert isinstance(gate, dict)
+        summaries.append(
+            {
+                "city": city,
+                "stations": len(stations),
+                "samples": gate.get("samples"),
+                "verdict": gate.get("verdict"),
+                "passed": gate.get("passed"),
+                "raw_category_agreement": gate.get("raw_category_agreement"),
+                "category_agreement": gate.get("category_agreement"),
+                "raw_mape": gate.get("raw_mape"),
+                "adjusted_mape": gate.get("adjusted_mape"),
+                "relative_improvement_pct": gate.get("relative_improvement_pct"),
+            }
+        )
+        print(f"  {gate.get('verdict')}", file=sys.stderr)
+
+    payload = {
+        "mode": "cities",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "period": {"start": start.isoformat(), "end": end.isoformat()},
+        "days": days,
+        "state": args.state,
+        "model_version": street_model.DEFAULT_MODEL.version,
+        "with_osm": bool(args.osm),
+        "cities": summaries,
+    }
+
+    print(json.dumps(payload, indent=2))
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        print(f"\nwritten to {args.out}", file=sys.stderr)
+
+    passed = sum(1 for s in summaries if s["passed"])
+    print(f"\n{passed}/{len(summaries)} cities passed the gate", file=sys.stderr)
+    return 0 if passed else 1
 
 
 if __name__ == "__main__":

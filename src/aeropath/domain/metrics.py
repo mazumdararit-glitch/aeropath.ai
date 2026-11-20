@@ -126,16 +126,30 @@ def category_agreement(pairs: list[tuple[float, float]]) -> CategoryAgreement:
 class GateResult:
     """The Phase 0 verdict.
 
-    Both conditions must hold. Requiring the model to beat the raw provider is
-    what stops a rules engine that is merely *different* from shipping as if it
-    were better.
+    Both conditions must hold, and both are **relative to the raw baseline**.
+    Requiring the model to beat the raw provider is what stops a rules engine
+    that is merely *different* from shipping as if it were better.
+
+    The category condition used to be an absolute 70%. That was miscalibrated:
+    raw spatial interpolation itself only reaches ~66% agreement on the CPCB
+    network, because the network is sparser than the phenomenon. An absolute
+    target therefore measures the network's own spatial noise, not the model.
+    Asking instead for a *gain over the baseline that is evaluated on the same
+    samples* is the same question the MAPE condition asks, and it is answerable
+    at any network density.
+
+    ``min_baseline_agreement`` guards the inverse failure: a baseline so weak
+    that beating it proves nothing would otherwise turn a relative win into a
+    spurious PASS.
     """
 
     category_agreement: float
     adjusted_mape: float
     raw_mape: float
-    min_category_agreement: float = 0.70
+    raw_category_agreement: float
+    min_category_gain: float = 0.05
     min_relative_improvement: float = 5.0
+    min_baseline_agreement: float = 0.50
     samples: int = 0
 
     @property
@@ -145,8 +159,17 @@ class GateResult:
         return 100.0 * (self.raw_mape - self.adjusted_mape) / self.raw_mape
 
     @property
+    def category_gain(self) -> float:
+        """Agreement gained over raw, as a fraction (0.05 is five points)."""
+        return self.category_agreement - self.raw_category_agreement
+
+    @property
+    def baseline_informative(self) -> bool:
+        return self.raw_category_agreement >= self.min_baseline_agreement
+
+    @property
     def category_pass(self) -> bool:
-        return self.category_agreement >= self.min_category_agreement
+        return self.category_gain >= self.min_category_gain
 
     @property
     def improvement_pass(self) -> bool:
@@ -154,18 +177,30 @@ class GateResult:
 
     @property
     def passed(self) -> bool:
-        return self.samples > 0 and self.category_pass and self.improvement_pass
+        return (
+            self.samples > 0
+            and self.baseline_informative
+            and self.category_pass
+            and self.improvement_pass
+        )
 
     def verdict(self) -> str:
         if self.samples == 0:
             return "INCONCLUSIVE: no comparable samples"
+        if not self.baseline_informative:
+            return (
+                f"INCONCLUSIVE: raw baseline agreement "
+                f"{self.raw_category_agreement:.1%} "
+                f"< {self.min_baseline_agreement:.0%}; a relative gain "
+                f"against a baseline this weak would not be meaningful"
+            )
         if self.passed:
             return "PASS"
         failures = []
         if not self.category_pass:
             failures.append(
-                f"category agreement {self.category_agreement:.1%} "
-                f"< {self.min_category_agreement:.0%}"
+                f"category agreement gain {self.category_gain * 100:+.1f}pts "
+                f"< {self.min_category_gain * 100:.0f}pts"
             )
         if not self.improvement_pass:
             failures.append(
