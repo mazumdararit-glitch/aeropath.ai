@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from aeropath.domain import cpcb_aqi
 from aeropath.domain.cpcb_aqi import InsufficientDataError
 from aeropath.domain.national_aqi import AVERAGING_HOURS, rolling_aqi
-from aeropath.external.osrm import OsrmRouter, RoutingError
+from aeropath.external.osrm import OsrmRouter
 from aeropath.external.provider import GridProvider, PointReading
 from aeropath.schemas.common import (
     Activity,
@@ -48,6 +48,11 @@ class PlannedRoute:
     score: engine.RouteScore
     aqi_confidence: Confidence
     basis: str
+    # False when the index rests on fewer pollutants than CPCB requires, which is
+    # the normal case for data after 2024-12. The number is then a particulate
+    # sub-index, not a national AQI, and clients must say so.
+    is_national_aqi: bool = True
+    pollutants_used: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +73,9 @@ class Plan:
     best_windows: tuple[HourWindow, ...]
     generated_at: datetime
     data_source: str
+    # The day the measurements describe. CPCB ingestion lags by months, so this
+    # is routinely much older than generated_at and must never be assumed equal.
+    data_date: str | None = None
 
 
 class ClimatologyProfile:
@@ -126,6 +134,15 @@ class ClimatologyProfile:
         return ranked[:limit]
 
 
+class DataUnavailableError(RuntimeError):
+    """A route was found, but no air-quality data covered it.
+
+    Distinct from ``RoutingError`` on purpose: the router succeeded, so this is a
+    data problem, not an upstream routing failure. Reporting it as 502 would send
+    an operator to look at the wrong service.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class PlanRequest:
     origin: Coordinate
@@ -157,11 +174,15 @@ class PlanService:
         )
 
         planned: list[PlannedRoute] = []
+        sampled = 0
+        with_concentrations = 0
         for geometry in geometries:
             segments = routing.segments_from_geometry(geometry)
             readings = await self._provider.concentrations_at(
                 [segment.coordinate for segment in segments], at=moment
             )
+            sampled += len(readings)
+            with_concentrations += sum(1 for reading in readings if reading.concentrations)
             engine_segments = self._to_engine_segments(segments, readings)
 
             try:
@@ -183,12 +204,23 @@ class PlanService:
                     score=score,
                     aqi_confidence=self._worst_confidence(readings),
                     basis="measured",
+                    is_national_aqi=self._is_national(readings),
+                    pollutants_used=max(
+                        (len(reading.concentrations) for reading in readings),
+                        default=0,
+                    ),
                 )
             )
 
         if not planned:
-            raise RoutingError(
-                "no route could be scored: no grid data covered any segment"
+            # Distinguish "no data" from "no route". The router worked; the grid
+            # simply does not cover this area, which is actionable information.
+            raise DataUnavailableError(
+                "no air-quality data covered this route. "
+                f"{with_concentrations} of {sampled} sampled points had "
+                "concentrations. CPCB coverage is sparse outside major cities, and "
+                "the dataset lags by months - check /v1/coverage for the available "
+                "window."
             )
 
         ranked = engine.rank_routes([route.score for route in planned])
@@ -206,14 +238,31 @@ class PlanService:
             best_windows=windows,
             generated_at=moment,
             data_source=self._provider.name,
+            data_date=self._data_date(),
         )
+
+    def _data_date(self) -> str | None:
+        """Ask the provider which day it served, when it knows.
+
+        Kept optional so a provider without a lag (a live forecast, say) does not
+        have to report one.
+        """
+        resolved = getattr(self._provider, "resolved_day", None)
+        return resolved.isoformat() if resolved is not None else None
 
     def _to_engine_segments(
         self,
         segments: list[routing.RouteSegment],
         readings: list[PointReading],
     ) -> list[engine.SegmentInput]:
-        """Join each segment to its reading and its derived AQI."""
+        """Join each segment to its reading and its derived AQI.
+
+        CPCB requires three pollutants for a national AQI, but the published
+        dataset stops reporting gases after 2024-12, leaving PM2.5 and PM10 only.
+        Rather than refuse to score — which would make the product unusable on all
+        recent data — the particulate sub-index is used and the response is marked
+        ``is_national_aqi=False``. Weaker and labelled beats absent.
+        """
         if len(segments) != len(readings):
             raise ValueError(
                 f"segment/reading mismatch: {len(segments)} vs {len(readings)}"
@@ -221,23 +270,46 @@ class PlanService:
 
         out: list[engine.SegmentInput] = []
         for segment, reading in zip(segments, readings, strict=True):
-            base_aqi: float | None = None
-            if reading.concentrations:
-                try:
-                    base_aqi = cpcb_aqi.compute(reading.concentrations).aqi
-                except InsufficientDataError:
-                    # Too few pollutants for a national AQI. Treat as missing so
-                    # the engine excludes the segment rather than guessing.
-                    base_aqi = None
             out.append(
                 engine.SegmentInput(
                     segment_id=segment.segment_id,
                     length_m=segment.length_m,
-                    base_aqi=base_aqi,
+                    base_aqi=self._index_for(reading),
                     road_class=routing.NEUTRAL_ROAD_CLASS,
                 )
             )
         return out
+
+    @staticmethod
+    def _index_for(reading: PointReading) -> float | None:
+        """Best available index for one point, or ``None`` if nothing usable."""
+        if not reading.concentrations:
+            return None
+        try:
+            return cpcb_aqi.compute(reading.concentrations).aqi
+        except InsufficientDataError:
+            pass
+        # Fall back to a partial index. require_minimum=False is explicitly the
+        # single-pollutant path, so this is a deliberate downgrade, not a bug.
+        try:
+            return cpcb_aqi.compute(
+                reading.concentrations, require_minimum=False
+            ).aqi
+        except InsufficientDataError:
+            return None
+
+    @staticmethod
+    def _is_national(readings: list[PointReading]) -> bool:
+        """Whether every scored point met CPCB's minimum-pollutant rule."""
+        for reading in readings:
+            if not reading.concentrations:
+                continue
+            try:
+                if not cpcb_aqi.compute(reading.concentrations).is_national:
+                    return False
+            except InsufficientDataError:
+                return False
+        return True
 
     @staticmethod
     def _worst_confidence(readings: list[PointReading]) -> Confidence:

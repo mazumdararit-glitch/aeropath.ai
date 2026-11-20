@@ -163,6 +163,18 @@ class AqiResult:
     def pollutant_count(self) -> int:
         return len(self.sub_indices)
 
+    @property
+    def is_national(self) -> bool:
+        """Whether this meets CPCB's reporting rule (>=3 pollutants, one PM).
+
+        ``False`` means the value is the best available sub-index, not a national
+        AQI. Reporting it as an AQI would breach the "One Number" rule; callers
+        must label it.
+        """
+        return self.pollutant_count >= MINIMUM_POLLUTANTS and any(
+            sub.pollutant in _PARTICULATE for sub in self.sub_indices
+        )
+
 
 def canonical_pollutant(name: str) -> str | None:
     """Normalise a pollutant label, or ``None`` if unsupported."""

@@ -15,10 +15,10 @@ air, not street air.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from aeropath.domain.cpcb_aqi import MINIMUM_POLLUTANTS
-from aeropath.domain.interpolation import interpolate_point
+from aeropath.domain.interpolation import haversine_km, interpolate_point
 from aeropath.domain.units import normalise
 from aeropath.external.cpcb_stations import (
     Station,
@@ -65,6 +65,12 @@ class XkdrStationProvider:
         self._max_km = max_station_distance_km
         self._owns_client = provider is None
         self._client = provider or StationClient(api_key=api_key)
+        # Resolved once per city: the newest available day changes monthly, so
+        # re-discovering it per request would add latency for no benefit.
+        self._resolved_days: dict[str, date] = {}
+        self._resolved_day: date | None = None
+        # Likewise the nearest station's city, which drives the measurement filter.
+        self._inferred_city: str | None = None
 
     async def __aenter__(self) -> XkdrStationProvider:
         return self
@@ -84,18 +90,32 @@ class XkdrStationProvider:
         A point far from every monitor gets **no reading**, not a city average
         presented as local air. Callers see an empty ``concentrations`` and the
         engine excludes it rather than scoring it as clean.
+
+        When ``at`` is omitted the newest available data is used, discovered from
+        the dataset rather than assumed. Asking for "now" is wrong for this
+        source: CPCB ingestion lags by months, and the API answers a window past
+        its coverage with HTTP 500 instead of an empty result.
         """
         if not points:
             return []
 
-        # One day of history, so the 24-hour CPCB windows can be built downstream.
-        end = (at or datetime.now(UTC)).date()
-        start = end - timedelta(days=1)
-
+        # City first: the day search must probe the same place the query will,
+        # or it resolves a month that has data somewhere else in the country.
         try:
+            city = await self._infer_city(points[0])
+            target_day = await self._resolve_day(at, city=city)
+            if target_day is None:
+                logger.warning("could not determine an available data day")
+                return [self._empty(point) for point in points]
+            start = target_day - timedelta(days=1)
+            end = target_day
+
+            # Filter by city server-side. Without it the nationwide query for a
+            # month exceeds the row cap and is truncated by station, so the
+            # stations actually near these points come back with no rows.
             stations = await self._stations_for(points)
             readings = await self._client.measurements(
-                city=self._city,
+                city=city,
                 parameters=REQUESTED_PARAMETERS,
                 start=start,
                 end=end,
@@ -103,15 +123,7 @@ class XkdrStationProvider:
             )
         except StationDataError as exc:
             logger.warning("station data unavailable: %s", exc)
-            return [
-                PointReading(
-                    coordinate=point,
-                    concentrations={},
-                    source=self.name,
-                    nearest_station_km=float("inf"),
-                )
-                for point in points
-            ]
+            return [self._empty(point) for point in points]
 
         grouped = pivot_readings(readings)
         coordinates = {s.station_id: s.coordinate for s in stations}
@@ -170,12 +182,53 @@ class XkdrStationProvider:
             )
         return out
 
-    async def _stations_for(self, points: list[Coordinate]) -> list[Station]:
-        """Stations near the query, from the city filter or a nationwide list.
+    @property
+    def resolved_day(self) -> date | None:
+        """The day the last request actually served, if one has run."""
+        return self._resolved_day
 
-        A nationwide station list is ~558 rows and is cached by the caller, so it
-        is cheaper than guessing which city a coordinate belongs to.
+    async def _resolve_day(
+        self, at: datetime | None, *, city: str | None = None
+    ) -> date | None:
+        """Which day to actually query, for a given city.
+
+        An explicit ``at`` is honoured but still validated against coverage, so a
+        caller asking for today gets the newest available day plus a warning rather
+        than an opaque server error. Cached per (instance, city) because the
+        answer changes monthly, not per request.
         """
+        cache_key = city or ""
+        if cache_key in self._resolved_days:
+            return self._resolved_days[cache_key]
+
+        requested = (at or datetime.now(UTC)).date()
+        resolved = await self._client.latest_available_day(
+            city=city, parameters=REQUESTED_PARAMETERS
+        )
+        if resolved is None:
+            return None
+        self._resolved_days[cache_key] = resolved
+        self._resolved_day = resolved
+
+        if at is not None and abs((requested - resolved).days) > 1:
+            logger.warning(
+                "requested %s but the newest available data is %s; CPCB ingestion "
+                "lags, so the response reports the available day",
+                requested,
+                resolved,
+            )
+        return resolved
+
+    def _empty(self, point: Coordinate) -> PointReading:
+        return PointReading(
+            coordinate=point,
+            concentrations={},
+            source=self.name,
+            nearest_station_km=float("inf"),
+        )
+
+    async def _stations_for(self, points: list[Coordinate]) -> list[Station]:
+        """Stations near the query, from the city filter or a nationwide list."""
         if self._city:
             return [
                 s
@@ -184,3 +237,40 @@ class XkdrStationProvider:
             ]
         stations = await self._client.stations()
         return [s for s in stations if s.source == "cpcb_caaqm"]
+
+    async def _infer_city(self, point: Coordinate) -> str | None:
+        """The city of the nearest **CPCB** station, for the measurement filter.
+
+        Two traps this avoids:
+
+        * Looking at all stations picks a US Embassy monitor, whose ``city_name``
+          ("New Delhi") is a *different* query filter from the CPCB city
+          ("Delhi"), so the measurement query returns almost nothing.
+        * Only CPCB stations contribute to the interpolation anyway, so filtering
+          to them keeps the day search and the value query on the same data.
+        """
+        if self._city:
+            return self._city
+        if self._inferred_city is not None:
+            return self._inferred_city
+
+        stations = [
+            s
+            for s in await self._client.stations()
+            if s.city and s.source == "cpcb_caaqm"
+        ]
+        if not stations:
+            return None
+
+        nearest = min(stations, key=lambda s: haversine_km(point, s.coordinate))
+        distance = haversine_km(point, nearest.coordinate)
+        if distance > self._max_km:
+            logger.warning(
+                "nearest CPCB station %s is %.1f km away, beyond the %.0f km limit",
+                nearest.station_id,
+                distance,
+                self._max_km,
+            )
+            return None
+        self._inferred_city = nearest.city
+        return self._inferred_city

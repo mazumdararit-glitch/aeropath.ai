@@ -37,6 +37,32 @@ class StationDataError(RuntimeError):
     """Station data is unavailable or malformed."""
 
 
+class _OutOfCoverageError(StationDataError):
+    """The requested window is past what the dataset contains.
+
+    The API reports this as HTTP 500 with an opaque body, so it is translated
+    into a distinct internal signal rather than being confused with a genuine
+    server fault.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class DataCoverage:
+    """The month range the dataset actually holds."""
+
+    first_month: str
+    last_month: str
+    exported_at: str
+
+    @property
+    def last_month_date(self) -> tuple[int, int] | None:
+        try:
+            year, month = (int(part) for part in self.last_month.split("-"))
+        except (ValueError, AttributeError):
+            return None
+        return year, month
+
+
 @dataclass(frozen=True, slots=True)
 class Station:
     station_id: str
@@ -137,6 +163,26 @@ class StationClient:
             )
         return out
 
+    async def coverage(self) -> DataCoverage:
+        """What months this dataset actually contains.
+
+        Necessary because the API answers **HTTP 500** — not an empty result — for
+        any window past its last exported month, so a caller that assumes "now"
+        gets an opaque server error rather than "no data yet".
+        """
+        response = await self._client.get("/v1/meta")
+        if response.status_code != httpx.codes.OK:
+            raise StationDataError(f"meta failed: {response.status_code}")
+        payload = response.json()
+        measurements = payload.get("measurements") or {}
+        if not isinstance(measurements, dict):
+            raise StationDataError("meta response missing measurements block")
+        return DataCoverage(
+            first_month=str(measurements.get("first_month") or ""),
+            last_month=str(measurements.get("last_month") or ""),
+            exported_at=str(payload.get("exported_at") or ""),
+        )
+
     async def measurements(
         self,
         *,
@@ -172,6 +218,68 @@ class StationClient:
                 )
             )
         return readings
+
+    async def latest_available_day(
+        self, *, city: str | None = None, parameters: list[str] | None = None
+    ) -> date | None:
+        """The most recent day with data, searched backwards from coverage end.
+
+        The dataset's ``last_month`` is an upper bound, not a guarantee: CPCB
+        ingestion lags unevenly, so Delhi's newest month is months behind the
+        US Embassy monitors. Rather than assume, this walks back from the last
+        month and returns the first day that actually has rows.
+
+        "Has rows" means at least two parameters on one station, because a single
+        pollutant cannot produce even a particulate sub-index downstream. A day
+        that exists but is too thin to score is not a usable answer.
+        """
+        try:
+            window = await self.coverage()
+        except StationDataError:
+            return None
+        if not window.last_month:
+            return None
+
+        try:
+            year, month = (int(part) for part in window.last_month.split("-"))
+        except ValueError:
+            return None
+
+        # Probe with every requested parameter, not just one: the usability test
+        # below is about how *many* pollutants a station reports, which a
+        # single-parameter probe cannot see.
+        probe_parameters = parameters or ["PM2.5"]
+        # Walk back up to ~18 months, one representative day per month. Probing
+        # one day per month is enough because gaps are month-sized, and it keeps
+        # this to a handful of cheap calls rather than a scan.
+        for back in range(18):
+            index = year * 12 + (month - 1) - back
+            probe_year, probe_month = divmod(index, 12)
+            probe_month += 1
+            if probe_year < 2009:
+                break
+            probe = date(probe_year, probe_month, 15)
+            try:
+                readings, _meta = await self._measurements_once(
+                    city=city,
+                    state=None,
+                    parameters=probe_parameters,
+                    start=probe,
+                    end=probe,
+                    agg="hourly",
+                    limit=None,
+                )
+            except _OutOfCoverageError:
+                continue
+
+            # Require breadth, not just presence: group by station and demand at
+            # least two parameters for at least one station.
+            per_station: dict[str, set[str]] = {}
+            for reading in readings:
+                per_station.setdefault(reading.station_id, set()).add(reading.parameter)
+            if any(len(params) >= 2 for params in per_station.values()):
+                return probe
+        return None
 
     async def _measurements_exact(
         self,
@@ -270,6 +378,14 @@ class StationClient:
             params["limit"] = limit
 
         response = await self._client.get("/v1/measurements", params=params)
+        if response.status_code == httpx.codes.INTERNAL_SERVER_ERROR:
+            # The documented behaviour for a window past the dataset's coverage is
+            # an opaque 500, not an empty result. Distinguish it so callers can
+            # walk back to data instead of surfacing a server error.
+            raise _OutOfCoverageError(
+                f"no data for {start}..{end} (server returned 500; this window is "
+                "past the dataset's coverage or spans a missing month)"
+            )
         if response.status_code != httpx.codes.OK:
             raise StationDataError(
                 f"measurements failed: {response.status_code} {response.text[:300]}"

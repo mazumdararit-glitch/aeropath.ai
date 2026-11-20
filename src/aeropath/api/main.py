@@ -18,6 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from aeropath.config import Settings, load_settings
+from aeropath.external.cpcb_stations import StationClient, StationDataError
 from aeropath.external.osrm import OsrmRouter, RoutingError
 from aeropath.external.xkdr_provider import XkdrStationProvider
 from aeropath.schemas.common import (
@@ -28,7 +29,7 @@ from aeropath.schemas.common import (
     Coordinate,
     Sensitivity,
 )
-from aeropath.services.planning import PlanRequest, PlanService
+from aeropath.services.planning import DataUnavailableError, PlanRequest, PlanService
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,16 @@ class RouteModel(BaseModel):
     confidence: Confidence
     basis: str
     unscored_fraction: float
+    is_national_aqi: bool = Field(
+        description=(
+            "False when the index rests on fewer than CPCB's three required "
+            "pollutants. The number is then a particulate sub-index, not a "
+            "national AQI, and must be labelled as such in any UI."
+        )
+    )
+    pollutants_used: int = Field(
+        description="How many pollutants the index was computed from."
+    )
 
 
 class WindowModel(BaseModel):
@@ -67,6 +78,17 @@ class PlanResponse(BaseModel):
     best_windows: list[WindowModel]
     generated_at: datetime
     data_source: str
+    data_date: str | None = Field(
+        default=None,
+        description=(
+            "The day the measurements describe. CPCB ingestion lags, so this is "
+            "usually older than generated_at. Never assume they match."
+        ),
+    )
+    data_note: str = Field(
+        default="",
+        description="Caveats that apply to every number in this response.",
+    )
 
 
 def create_app(
@@ -97,12 +119,54 @@ def create_app(
         )
         return PlanService(provider, router)
 
+    @app.get("/")
+    async def root() -> dict[str, object]:
+        """Landing route.
+
+        Without this, opening http://localhost:8000/ returns 404, which reads as
+        "the server is broken" rather than "there is nothing here by design".
+        """
+        return {
+            "service": "AEROPATH",
+            "version": "0.1.0",
+            "docs": "/docs",
+            "health": "/healthz",
+            "plan": "POST /v1/plan",
+        }
+
     @app.get("/healthz")
     async def healthz() -> dict[str, object]:
         return {
             "status": "ok",
             "xkdr_configured": bool(resolved.xkdr_api_key),
             "router": resolved.osrm_base_url,
+        }
+
+    @app.get("/v1/coverage")
+    async def coverage() -> dict[str, object]:
+        """What data actually exists.
+
+        The plan endpoint answers with the newest available data, which is months
+        behind today. Without this endpoint a caller has no way to know that, and
+        "AQI 180" would be read as current air when it may describe last August.
+        """
+        try:
+            client = StationClient(api_key=resolved.require_xkdr())
+            try:
+                window = await client.coverage()
+            finally:
+                await client.aclose()
+        except (StationDataError, RuntimeError) as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        return {
+            "first_month": window.first_month,
+            "last_month": window.last_month,
+            "exported_at": window.exported_at,
+            "note": (
+                "CPCB ingestion lags the export date. The plan endpoint uses the "
+                "newest day that actually has rows, not today."
+            ),
         }
 
     @app.post("/v1/plan", response_model=PlanResponse)
@@ -126,6 +190,10 @@ def create_app(
         except RoutingError as exc:
             # The router failed, which is upstream and not the caller's fault.
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except DataUnavailableError as exc:
+            # Routing succeeded; the grid does not cover this area. 503 rather
+            # than 502 so an operator checks data coverage, not the router.
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -141,6 +209,8 @@ def create_app(
                     confidence=route.aqi_confidence,
                     basis=route.basis,
                     unscored_fraction=route.score.unscored_fraction,
+                    is_national_aqi=route.is_national_aqi,
+                    pollutants_used=route.pollutants_used,
                 )
                 for route in result.routes
             ],
@@ -157,9 +227,27 @@ def create_app(
             ],
             generated_at=result.generated_at,
             data_source=result.data_source,
+            data_date=result.data_date,
+            data_note=_data_note(result),
         )
 
     return app
+
+
+def _data_note(result: object) -> str:
+    """Assemble the caveats a caller must not have to rediscover."""
+    routes = getattr(result, "routes", ())
+    notes: list[str] = []
+    if routes and not all(route.is_national_aqi for route in routes):
+        notes.append(
+            "Index computed from fewer than CPCB's three required pollutants "
+            "(the public dataset stops reporting gaseous pollutants after "
+            "2024-12). This is a particulate sub-index, not a national AQI."
+        )
+    date = getattr(result, "data_date", None)
+    if date:
+        notes.append(f"Measurements describe {date}; CPCB ingestion lags.")
+    return " ".join(notes)
 
 
 app = create_app()
