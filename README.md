@@ -52,6 +52,19 @@ live but its CAMS global grid over India is coarse enough that two Delhi points
 Set `GRID_PROVIDER=xkdr` to use the station archive instead. The response always
 states which one served it, via `data_source` and `data_note`.
 
+### Configuration
+
+No configuration is required for the default setup. These environment variables
+(or a local `.env`) override it — `.env` is gitignored, and so is every `.env.*`
+file, so a key cannot be committed by accident:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GRID_PROVIDER` | `open_meteo` | `open_meteo` or `xkdr` |
+| `XKDR_API_KEY` | — | only read when `GRID_PROVIDER=xkdr` |
+| `OSRM_BASE_URL` | `router.project-osrm.org` | routing backend |
+| `CACHE_TTL_S` | `900` | provider cache lifetime |
+
 ## Layout
 
 ```

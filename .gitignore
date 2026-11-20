@@ -22,9 +22,14 @@ scratch/osm_cache/
 *.pkl
 
 # Secrets
+#
+# Every .env* file is ignored, including .env.example. The usual convention is to
+# track a template via "!.env.example", but that is how a real key ended up in
+# git history once (it was pasted into the template rather than .env). Ignoring
+# the whole family makes that mistake impossible; the variables are documented in
+# the README instead.
 .env
 .env.*
-!.env.example
 
 # Agent/tooling state
 .commandcode/
