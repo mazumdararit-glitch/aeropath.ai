@@ -54,7 +54,7 @@ Interpolating a station from its neighbours **already encodes the neighbours' ro
 
 The station-to-station harness therefore cannot validate the street model at all. It can only validate *interpolation*. Testing the adjustment needs a baseline that is **not** built from stations — i.e. the provider's 500 m grid.
 
-## Finding 4 — `road_factor` has the wrong sign on this network
+## Finding 4 — `road_factor` has the wrong sign, and road class explains nothing
 
 Residual analysis: how much dirtier each station is than its neighbours predict, grouped by OSM road class.
 
@@ -67,12 +67,34 @@ Residual analysis: how much dirtier each station is than its neighbours predict,
 
 The model asserts secondary > tertiary > residential (1.15 / 1.00 / 1.00). The data says secondary and tertiary roads are **cleaner** than their neighbours predict and residential is **dirtier**.
 
-Two caveats, both important:
+That first table was 7 Kolkata stations, and 7 is too few to fit 13 factors. Two caveats applied at the time:
 
-* The sample is **7 stations**, far too few to fit 13 road factors. One station per class in most cases.
+* One station per class in most cases.
 * The residuals are confounded by genuine local sources. `site_5126` Rabindra Sarobar sits on a lake (−27.4%) and `site_5238` Ballygunge is a dense commercial area (+20.5%). Those are real green/water effects, not road-class effects.
 
-What the data does establish: **local context is worth ±20–27%**, which supports the product premise. What it does not establish: that road class is the right proxy for it.
+What that pass did establish: **local context is worth ±20–27%**, which supports the product premise. What it did not establish: that road class is the right proxy for it.
+
+The natural objection is sample size, so the analysis was repeated on Delhi's 39 (37 after removing duplicates — see Finding 7), with the **station** as the unit of analysis rather than the hourly sample, and permutation tests instead of eyeballed percentages.
+
+| Road class | Stations | Mean residual | 95% CI (over stations) | Spread |
+|---|---|---|---|---|
+| secondary | 2 | −5.75% | [−6.4%, −5.1%] | 1.2% |
+| tertiary | 4 | −0.61% | [−8.8%, +6.0%] | 21.3% |
+| residential | 13 | +2.53% | [−1.6%, +6.1%] | 26.1% |
+| service | 16 | −7.33% | [−16.0%, +0.5%] | **55.5%** |
+
+The sign is inverted again, on 5× the stations. But the more important number is this:
+
+> **Road class explains 12.8% of between-station variance in the residual
+> (permutation p = 0.429, 6 classes, 37 stations).**
+
+Not distinguishable from chance. Kolkata gives the same verdict: 23.3%, p = 0.760.
+
+That is the finding that closes the question. The within-class spread is the tell: `service` stations range across 55 percentage points, from +16.6% to −39.0%. Road class is not a noisy version of the right answer — it is unrelated to the residual. **Refitting the 13 factors cannot fix that, because the proxy itself is wrong, not its constants.**
+
+`road_class_residuals.py` carries the caveat that explains why: OSM road class is the nearest road to the station's coordinate, and most CPCB monitors are rooftop installations whose intake is not where the point is. The residual is real and large — the ±20–27% local effect reproduces — but road class does not locate it.
+
+**Consequence for the product:** the premise ("local context is worth ±20–27%") survives; the implementation (`road_factor × road_class`) does not. Any replacement has to model the actual emission surface near the intake — traffic counts, street-canyon geometry, source inventory — rather than the nearest way's `highway` tag.
 
 ## Finding 5 — the gate was miscalibrated, and is now relative
 
@@ -102,14 +124,15 @@ No city passes. Without road context the model is a uniform multiplier, which by
 
 Delhi **with** real OSM road context (39/39 stations resolved) is the informative row: **−7.0 points, −7.3% MAPE**. Density did not rescue the model, so the conclusions in Findings 3 and 4 hold.
 
-## Finding 7 — the harness was silently dropping stations
+## Finding 7 — three bugs were corrupting the numbers
 
-Two bugs meant earlier numbers were computed on a subset of the network while appearing complete:
+Each of these produced plausible-looking output from a computation that was not doing what its name said.
 
 * **Silent truncation.** The station endpoint caps at 10k rows and applies the cap *after ordering*, so a 5-day Delhi query returned **15 of 39 stations** with HTTP 200. Fixed by paging by day and splitting the parameter list if a single day still exceeds the cap; a query that still truncates now raises.
 * **Shared OSM cache.** The cache filename was hardcoded to `kolkata`, so any second city silently reused Kolkata's road geometries. Fixed by keying the file on the query.
+* **Duplicate stations.** Delhi publishes Lodhi Road and Pusa twice, under two IDs at **identical coordinates**. A co-located twin divides by zero in inverse-distance weighting (it crashed the residual analysis outright), and in leave-one-out it predicts its own duplicate almost perfectly, which inflates the score. Now collapsed before analysis, and the collapse is reported rather than silent.
 
-Separately, an `--osm` run that resolved no context used to continue and report a neutral result as if it were a test. It now aborts.
+Separately, an `--osm` run that resolved no context used to continue and report a neutral result as if it were a test. It now aborts. And `with_road_context` was counting *samples* rather than *stations*, so a 7-station run reported "826/7".
 
 ---
 
@@ -121,7 +144,8 @@ Separately, an `--osm` run that resolved no context used to continue and report 
 - **Metrics and the gate** — MAPE with a near-zero floor, bias, RMSE, category confusion matrix ranked by two-band misses, relative gate verdict logic (`domain/metrics.py`).
 - **Providers** — Google Air Quality pinned to `ind_cpcb`, with `history:lookup` for the validation window and page counting; CPCB stations with truncation-safe day paging; point-local Overpass road context.
 - **Nationwide validation** — `cities --all-cities` walks every city in the dataset (247 cities, 558 stations), densest network first.
-- **252 unit tests passing.**
+- **Road-class residual analysis** — `scripts/road_class_residuals.py`, station-level with bootstrap CIs, permutation tests and a variance decomposition, so a null result can be told apart from an underpowered one.
+- **270 unit tests passing.**
 
 ## What is blocked
 

@@ -1,0 +1,28 @@
+Kolkata  2024-11-01 -> 2024-11-05
+
+   station    road class  hours  mean resid    median
+ site_5238   residential    118    +20.54%  +20.92%
+  site_296   residential    119     -9.93%  -13.83%
+  site_309     secondary    119    -10.90%   -6.58%
+ site_5111       service    117     +6.65%   +7.95%
+ site_5110       service    117     -2.17%   -1.53%
+ site_5126       service    117    -27.42%  -21.96%
+ site_5129      tertiary    119    -12.99%  -12.67%
+
+   road class stations  mean resid               95% CI    spread
+    secondary        1    -10.90%           n<2, no CI         -
+     tertiary        1    -12.99%           n<2, no CI         -
+  residential        2     +5.30%      [-9.9%, +20.5%]     30.5%
+      service        3     -7.64%      [-27.4%, +6.7%]     34.1%
+
+Model asserts busier road => dirtier. Tested pairs (permutation, unit=station):
+   secondary - residential =  -16.20%  p=n/a     CONTRADICTS model
+    tertiary - residential =  -18.30%  p=n/a     CONTRADICTS model
+   secondary - tertiary    =   +2.10%  p=n/a     agrees with model
+
+Road class explains 23.3% of between-station variance in the residual (permutation p=0.760 over 4 classes, 7 stations).
+  -> Not distinguishable from chance. Road class does not explain these residuals; refitting its factors cannot fix that.
+
+A positive residual means the station is dirtier than its neighbours predict.
+If the busier classes are not systematically more positive, road_factor is not supported by this network.
+Caveat: OSM road class describes the nearest road to the station, which for a rooftop monitor may not be the road driving its exposure.

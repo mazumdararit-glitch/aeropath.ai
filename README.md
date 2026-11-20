@@ -25,6 +25,7 @@ src/aeropath/
     overpass.py             point-local OSM road context
     osm_context.py          road classification and proximity in metres
 scripts/phase0_validate.py  the accuracy gate
+scripts/road_class_residuals.py  does road class explain station residuals?
 ```
 
 ## Setup
@@ -86,6 +87,13 @@ by up to 80 AQI points and in opposite directions in different bands. See
 **A uniform multiplier cannot change a ranking.** Only per-segment factors can, so
 without OSM road context the model is a no-op. An `--osm` run that resolves no
 road context now aborts instead of quietly reporting a neutral result.
+
+**Road class is a null result, not a tuning problem.** On Delhi's network (37
+stations) road class explains 12.8% of between-station residual variance at
+p = 0.429, and the sign is inverted: secondary and tertiary roads are *cleaner*
+than their neighbours predict. Kolkata agrees (23.3%, p = 0.760). Refitting the
+factors cannot fix a proxy that does not locate the effect. See
+`docs/phase0-results.md` finding 4 and `scripts/road_class_residuals.py`.
 
 **`history:lookup`, not `forecast:lookup`, for validation.** Station readings
 exist only for the past, so the provider comparison must use the history endpoint

@@ -1,0 +1,60 @@
+Delhi  2024-11-01 -> 2024-11-05
+
+   station    road class  hours  mean resid    median
+ site_1431       footway    118     +5.81%   +5.07%
+ site_1424    pedestrian    120     -4.20%   -3.90%
+ site_1435   residential    115    +12.36%  +13.54%
+ site_1429   residential     98    +11.15%   +9.73%
+  site_124   residential    120     +8.73%   +7.59%
+ site_1434   residential    118     +7.36%   +6.64%
+ site_1422   residential    120     +6.97%   +4.14%
+ site_1561   residential    120     +3.38%   +2.22%
+  site_113   residential    118     +2.40%   +1.81%
+  site_125   residential    120     +2.32%   +2.99%
+  site_119   residential    120     +1.76%   +2.43%
+ site_1425   residential    120     +0.42%   +3.43%
+  site_105   residential    120     -1.56%   +2.72%
+ site_1427   residential    120     -8.68%   -5.21%
+  site_109   residential    120    -13.70%   -7.67%
+  site_117     secondary    119     -5.13%   -4.45%
+  site_108     secondary    120     -6.37%   -3.11%
+  site_301       service    115    +16.55%  +15.51%
+ site_1430       service    117    +11.58%  +10.92%
+ site_1560       service    120     +6.07%   +5.66%
+ site_1428       service    118     +4.14%   +3.80%
+ site_1432       service    119     +3.05%   +4.75%
+ site_1420       service    116     +1.36%   +1.99%
+ site_5024       service    120     -0.18%   +1.53%
+  site_122       service    117     -0.51%   +1.95%
+  site_106       service    120     -2.42%   -2.43%
+  site_104       service    120     -5.26%   -3.69%
+ site_1426       service    120     -6.15%   -3.45%
+  site_103       service    120     -7.50%   -6.64%
+ site_5393       service    118    -26.70%  -25.47%
+  site_114       service    120    -34.39%  -32.62%
+  site_118       service    120    -37.98%  -24.33%
+ site_1562       service    120    -38.96%  -30.34%
+ site_1423      tertiary    117     +8.31%   +9.69%
+  site_115      tertiary    120     +3.66%  +10.53%
+ site_1421      tertiary    119     -1.44%   +0.86%
+  site_107      tertiary    120    -12.96%  -10.27%
+
+   road class stations  mean resid               95% CI    spread
+    secondary        2     -5.75%       [-6.4%, -5.1%]      1.2%
+     tertiary        4     -0.61%       [-8.8%, +6.0%]     21.3%
+  residential       13     +2.53%       [-1.6%, +6.1%]     26.1%
+      footway        1     +5.81%           n<2, no CI         -
+   pedestrian        1     -4.20%           n<2, no CI         -
+      service       16     -7.33%      [-16.0%, +0.5%]     55.5%
+
+Model asserts busier road => dirtier. Tested pairs (permutation, unit=station):
+   secondary - residential =   -8.28%  p=0.148   CONTRADICTS model
+    tertiary - residential =   -3.14%  p=0.501   CONTRADICTS model
+   secondary - tertiary    =   -5.14%  p=0.535   CONTRADICTS model
+
+Road class explains 12.8% of between-station variance in the residual (permutation p=0.429 over 6 classes, 37 stations).
+  -> Not distinguishable from chance. Road class does not explain these residuals; refitting its factors cannot fix that.
+
+A positive residual means the station is dirtier than its neighbours predict.
+If the busier classes are not systematically more positive, road_factor is not supported by this network.
+Caveat: OSM road class describes the nearest road to the station, which for a rooftop monitor may not be the road driving its exposure.
