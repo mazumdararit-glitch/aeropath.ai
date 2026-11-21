@@ -1730,13 +1730,19 @@ HTML_PAGE = r"""<!DOCTYPE html>
         tabsRow.innerHTML = currentRoutes.map((r, i) => {
           const isAct = i === activeRouteIndex ? 'active' : '';
           const tag = i === 0 ? 'Option A (Cleanest)' : `Option ${String.fromCharCode(65 + i)}`;
+          const km = (r.distance_m / 1000).toFixed(1);
+          const doseStr = Math.round(r.dose).toLocaleString();
           return `
             <div class="route-tab-card ${isAct}" 
                  onclick="switchActiveRoute(${i})"
                  onmouseenter="highlightRoutePolyline(${i})"
                  onmouseleave="resetRoutePolylines()">
-              <span class="route-tab-label">${tag}</span>
-              <span class="route-tab-metric">${Math.round(r.mean_aqi)} AQI</span>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="route-tab-label">${tag}</span>
+                ${i === 0 ? '<span style="font-size:0.65rem; background:rgba(16,185,129,0.18); color:#10b981; padding:1px 6px; border-radius:4px; font-weight:700;">LOWEST DOSE</span>' : ''}
+              </div>
+              <span class="route-tab-metric">${r.mean_aqi.toFixed(1)} <span style="font-size:0.75rem; font-weight:500; color:var(--text-muted);">AQI</span></span>
+              <span style="font-size:0.72rem; color:var(--text-muted); font-weight:500;">${km} km &bull; Dose: ${doseStr}</span>
             </div>
           `;
         }).join('');
