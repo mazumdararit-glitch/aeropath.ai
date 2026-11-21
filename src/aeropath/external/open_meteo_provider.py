@@ -181,6 +181,55 @@ class OpenMeteoProvider:
             nearest_station_km=float("inf"),
         )
 
+    async def hourly_forecast(
+        self, point: Coordinate, *, hours: int = 96
+    ) -> dict[int, dict[str, float]]:
+        """Hourly pollutant concentrations for the next ``hours`` hours.
+
+        Returns ``{hour_offset: {pollutant: concentration}}`` where hour_offset
+        is 0 for the current hour.  The concentrations are already normalised to
+        CPCB canonical units (CO in mg/m³, everything else in µg/m³).
+
+        Open-Meteo serves up to 5 days (120 h) of forecast on the free tier.
+        The ``forecast_hours`` parameter selects how many.
+        """
+        params = {
+            "latitude": f"{point.lat:.6f}",
+            "longitude": f"{point.lng:.6f}",
+            "hourly": ",".join(VARIABLES),
+            "forecast_hours": str(min(hours, 120)),
+            "timezone": "UTC",
+        }
+
+        try:
+            response = await self._client.get("/v1/air-quality", params=params)
+        except httpx.HTTPError as exc:
+            logger.warning("open-meteo forecast request failed: %s", exc)
+            return {}
+
+        if response.status_code != httpx.codes.OK:
+            logger.warning(
+                "open-meteo forecast returned %s: %s",
+                response.status_code,
+                response.text[:200],
+            )
+            return {}
+
+        payload = response.json()
+        hourly = payload.get("hourly") or {}
+        times = hourly.get("time") or []
+
+        result: dict[int, dict[str, float]] = {}
+        for offset, _time_str in enumerate(times):
+            raw: dict[str, float] = {}
+            for variable, pollutant in VARIABLES.items():
+                values = hourly.get(variable) or []
+                if offset < len(values) and values[offset] is not None:
+                    raw[pollutant] = float(values[offset])
+            if raw:
+                result[offset] = normalise(raw, UNITS)
+        return result
+
     @property
     def resolution_km(self) -> float | None:
         """Observed model resolution, from the last response's grid offset."""

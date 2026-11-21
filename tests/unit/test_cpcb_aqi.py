@@ -151,7 +151,7 @@ class TestCompute:
 
     def test_requires_particulate(self) -> None:
         """CPCB will not publish an AQI from gases alone."""
-        with pytest.raises(InsufficientDataError, match="PM2.5 or PM10"):
+        with pytest.raises(InsufficientDataError, match=r"PM2\.5 or PM10"):
             compute({"NO2": 90.0, "SO2": 90.0, "CO": 5.0})
 
     def test_three_with_particulate_is_enough(self) -> None:

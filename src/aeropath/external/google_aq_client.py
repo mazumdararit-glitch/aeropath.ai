@@ -285,13 +285,16 @@ def _parse_hourly_entries(
             for p in entry.get("pollutants", [])
             if isinstance(p, dict) and "code" in p and "concentration" in p
         }
+        dominant = (
+            str(index["dominantPollutant"]) if index.get("dominantPollutant") else None
+        )
         out.append(
             HourlyCell(
                 cell=cell,
                 hour=datetime.fromisoformat(str(entry["dateTime"]).replace("Z", "+00:00")),
-                aqi=float(index["aqi"]),
+                aqi=float(str(index["aqi"])),
                 category=str(index.get("category", "")),
-                dominant_pollutant=index.get("dominantPollutant"),
+                dominant_pollutant=dominant,
                 pollutants=pollutants,
             )
         )

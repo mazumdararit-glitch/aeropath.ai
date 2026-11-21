@@ -22,7 +22,7 @@ python -m venv .venv
 ```
 
 No API key needed. The default provider is Open-Meteo's live CAMS feed, which is
-free and keyless. Open <http://localhost:8000/docs> or:
+free and keyless. Open the interactive map at <http://localhost:8000/map> or the API docs at <http://localhost:8000/docs>:
 
 ```bash
 curl -X POST localhost:8000/v1/plan -H 'content-type: application/json' -d '{

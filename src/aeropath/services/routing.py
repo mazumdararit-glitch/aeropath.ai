@@ -97,6 +97,30 @@ class RouteSegment:
     cell: str
     coordinate: Coordinate
     length_m: float
+    road_class: RoadClass = RoadClass.RESIDENTIAL
+
+
+def infer_road_class_from_steps(step_names: tuple[str, ...]) -> RoadClass:
+    """Infer the representative road class from route street names."""
+    if not step_names:
+        return RoadClass.RESIDENTIAL
+
+    names_lower = " ".join(s.lower() for s in step_names)
+    if any(k in names_lower for k in ["expressway", "motorway", "bypass"]):
+        return RoadClass.MOTORWAY
+    if any(k in names_lower for k in ["highway", "trunk", "grand trunk"]):
+        return RoadClass.TRUNK
+    if any(k in names_lower for k in ["arterial", "broadway", "ring road", "sarani"]):
+        return RoadClass.PRIMARY
+    if any(k in names_lower for k in ["road", "marg", "street", "rasta"]):
+        return RoadClass.SECONDARY
+    if any(k in names_lower for k in ["park", "lake", "garden", "trail", "path", "footway"]):
+        return RoadClass.FOOTWAY
+    if any(k in names_lower for k in ["promenade", "ghat", "pedestrian", "mall", "chowk"]):
+        return RoadClass.PEDESTRIAN
+    if any(k in names_lower for k in ["lane", "gali", "colony", "enclave"]):
+        return RoadClass.LIVING_STREET
+    return RoadClass.RESIDENTIAL
 
 
 def segments_from_geometry(
@@ -113,6 +137,7 @@ def segments_from_geometry(
     # Each sample stands for one spacing of route; the remainder of the route is
     # distributed evenly so the segment lengths still sum to the route distance.
     per_sample = geometry.distance_m / len(samples) if samples else 0.0
+    detected_class = infer_road_class_from_steps(geometry.step_names)
 
     segments: list[RouteSegment] = []
     for sample in samples:
@@ -123,6 +148,7 @@ def segments_from_geometry(
                 cell=previous.cell,
                 coordinate=previous.coordinate,
                 length_m=previous.length_m + per_sample,
+                road_class=detected_class,
             )
             continue
         segments.append(
@@ -131,6 +157,7 @@ def segments_from_geometry(
                 cell=sample.cell,
                 coordinate=sample.coordinate,
                 length_m=per_sample,
+                road_class=detected_class,
             )
         )
     return segments

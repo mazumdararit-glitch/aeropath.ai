@@ -26,7 +26,7 @@ from aeropath.services.scoring.engine import RouteScore
 
 
 def _settings(**overrides: object) -> Settings:
-    defaults = {"xkdr_api_key": "test-key"}
+    defaults: dict[str, object] = {"xkdr_api_key": "test-key"}
     defaults.update(overrides)
     return Settings(**defaults)  # type: ignore[arg-type]
 
@@ -85,6 +85,25 @@ class TestHealth:
         response = client.get("/healthz")
         assert response.status_code == 200
         assert response.json()["xkdr_configured"] is True
+
+        # Test /health alias
+        response_alias = client.get("/health")
+        assert response_alias.status_code == 200
+        assert response_alias.json()["status"] == "ok"
+
+    def test_map_endpoint_returns_html(self) -> None:
+        client = TestClient(create_app(_settings()))
+        response = client.get("/map")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "AEROPATH" in response.text
+        assert "leaflet" in response.text
+
+    def test_root_includes_map_link(self) -> None:
+        client = TestClient(create_app(_settings()))
+        response = client.get("/")
+        assert response.status_code == 200
+        assert response.json()["map"] == "/map"
 
 
 class TestPlanEndpoint:

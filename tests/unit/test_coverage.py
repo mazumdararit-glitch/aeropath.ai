@@ -27,7 +27,9 @@ from aeropath.external.cpcb_stations import (
 BASE = "https://airquality.xkdr.org"
 
 
-def _measurement(station: str, parameter: str, hour: str = "2025-08-15T00:00:00") -> dict:
+def _measurement(
+    station: str, parameter: str, hour: str = "2025-08-15T00:00:00"
+) -> dict[str, object]:
     return {
         "station_id": station,
         "parameter_name": parameter,

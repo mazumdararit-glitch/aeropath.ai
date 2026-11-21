@@ -16,6 +16,7 @@ results are cached because OSM queries are the slowest thing in Phase 0.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from shapely.geometry import Point
@@ -105,7 +106,7 @@ def _project_geometry(geometry: object, crs: str) -> object:
 
 
 def distance_to_nearest(
-    point: Coordinate, geometries: list[object], *, crs: str | None = None
+    point: Coordinate, geometries: Sequence[object], *, crs: str | None = None
 ) -> float | None:
     """Metres to the nearest of a set of shapely geometries, or ``None``."""
     if not geometries:
@@ -129,9 +130,9 @@ def distance_to_nearest(
 def build_context(
     point: Coordinate,
     *,
-    roads: list[tuple[object, str | None]],
-    green_areas: list[object],
-    water: list[object],
+    roads: Sequence[tuple[object, str | None]],
+    green_areas: Sequence[object],
+    water: Sequence[object],
     crs: str | None = None,
 ) -> RoadContext:
     """Road class and proximity context for one point."""
@@ -181,7 +182,7 @@ def build_context(
     )
 
 
-def _nearest_distance(target: Point, geometries: list[object]) -> float | None:
+def _nearest_distance(target: Point, geometries: Sequence[object]) -> float | None:
     best: float | None = None
     for geometry in geometries:
         _, nearest = nearest_points(target, geometry)  # type: ignore[arg-type]

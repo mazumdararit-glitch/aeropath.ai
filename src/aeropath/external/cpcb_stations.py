@@ -135,7 +135,7 @@ class StationClient:
         With neither filter this returns every station in the dataset, which is
         the only way to enumerate cities: there is no ``/v1/cities`` endpoint.
         """
-        params: dict[str, object] = {"limit": STATION_PAGE_LIMIT}
+        params: dict[str, str | int] = {"limit": STATION_PAGE_LIMIT}
         if city:
             params["city"] = city
         if state:
@@ -363,7 +363,7 @@ class StationClient:
         agg: str,
         limit: int | None,
     ) -> tuple[list[Reading], QueryMeta]:
-        params: dict[str, object] = {
+        params: dict[str, str | int | list[str]] = {
             "parameter": parameters,
             "start": start.isoformat(),
             "end": end.isoformat(),

@@ -39,6 +39,30 @@ from aeropath.services.scoring import categories, engine, street_model
 logger = logging.getLogger(__name__)
 
 
+class ForecastProfile:
+    """Hourly AQI from a real forecast, for the best-window search.
+
+    Unlike ``ClimatologyProfile`` (which answers "when is it usually cleaner"),
+    this carries an actual forecast and is labelled ``forecast`` in every
+    response so a user knows the difference.
+
+    ``hourly_aqi`` maps hour-of-day (0-23) to the forecast AQI for that
+    specific upcoming hour, not a historical distribution.
+    """
+
+    def __init__(self, hourly_aqi: dict[int, float]) -> None:
+        self._hourly = {h: v for h, v in hourly_aqi.items() if v > 0}
+
+    @property
+    def is_empty(self) -> bool:
+        return not self._hourly
+
+    def cleanest_hours(self, *, limit: int = 3) -> list[tuple[int, float]]:
+        """Hours ranked by forecast AQI, cleanest first."""
+        ranked = sorted(self._hourly.items(), key=lambda item: (item[1], item[0]))
+        return ranked[:limit]
+
+
 @dataclass(frozen=True, slots=True)
 class PlannedRoute:
     """One route, scored."""
@@ -48,6 +72,7 @@ class PlannedRoute:
     score: engine.RouteScore
     aqi_confidence: Confidence
     basis: str
+    geometry: tuple[Coordinate, ...] = ()
     # False when the index rests on fewer pollutants than CPCB requires, which is
     # the normal case for data after 2024-12. The number is then a particulate
     # sub-index, not a national AQI, and clients must say so.
@@ -153,9 +178,15 @@ class PlanRequest:
 
 
 class PlanService:
-    def __init__(self, provider: GridProvider, router: OsrmRouter) -> None:
+    def __init__(
+        self,
+        provider: GridProvider,
+        router: OsrmRouter,
+        street_params: street_model.StreetModelParams = street_model.DEFAULT_MODEL,
+    ) -> None:
         self._provider = provider
         self._router = router
+        self._street_params = street_params
         # Set from the first reading that carries a timestamp, so a live provider
         # still reports which hour it modelled.
         self._last_observed_at: datetime | None = None
@@ -166,6 +197,7 @@ class PlanService:
         *,
         at: datetime | None = None,
         climatology: ClimatologyProfile | None = None,
+        forecast: ForecastProfile | None = None,
     ) -> Plan:
         moment = at or datetime.now(UTC)
 
@@ -196,7 +228,7 @@ class PlanService:
             try:
                 score = engine.score_route(
                     engine_segments,
-                    params=street_model.IDENTITY_MODEL,
+                    params=self._street_params,
                     hour_of_day=moment.hour,
                     activity=request.activity,
                     sensitivity=request.sensitivity,
@@ -212,6 +244,7 @@ class PlanService:
                     score=score,
                     aqi_confidence=self._worst_confidence(readings),
                     basis="measured",
+                    geometry=geometry.coordinates,
                     is_national_aqi=self._is_national(readings),
                     pollutants_used=max(
                         (len(reading.concentrations) for reading in readings),
@@ -237,8 +270,26 @@ class PlanService:
         ordered_by_id = {id(route.score): route for route in planned}
         ordered = tuple(ordered_by_id[id(score)] for score in ranked)
 
+        if forecast is None and climatology is None and hasattr(self._provider, "hourly_forecast"):
+            try:
+                hourly = await self._provider.hourly_forecast(request.origin, hours=96)
+                if hourly:
+                    hourly_aqi: dict[int, float] = {}
+                    for offset, concentrations in hourly.items():
+                        hour_of_day = (moment.hour + offset) % 24
+                        try:
+                            res = cpcb_aqi.compute(concentrations, require_minimum=False)
+                            if hour_of_day not in hourly_aqi:
+                                hourly_aqi[hour_of_day] = res.aqi
+                        except InsufficientDataError:
+                            continue
+                    if hourly_aqi:
+                        forecast = ForecastProfile(hourly_aqi)
+            except Exception as exc:
+                logger.debug("could not fetch forecast for best_windows: %s", exc)
+
         windows = self._windows(
-            ordered[0].score.mean_aqi, request.activity, climatology
+            ordered[0].score.mean_aqi, request.activity, climatology, forecast
         )
 
         return Plan(
@@ -258,9 +309,9 @@ class PlanService:
         """
         resolved = getattr(self._provider, "resolved_day", None)
         if resolved is not None:
-            return resolved.isoformat()
+            return str(resolved.isoformat())
         observed = getattr(self, "_last_observed_at", None)
-        return observed.isoformat() if observed else None
+        return str(observed.isoformat()) if observed else None
 
     def _to_engine_segments(
         self,
@@ -287,7 +338,7 @@ class PlanService:
                     segment_id=segment.segment_id,
                     length_m=segment.length_m,
                     base_aqi=self._index_for(reading),
-                    road_class=routing.NEUTRAL_ROAD_CLASS,
+                    road_class=segment.road_class,
                 )
             )
         return out
@@ -311,7 +362,7 @@ class PlanService:
             return None
 
     @staticmethod
-    def _is_national(readings: list[PointReading]) -> bool:
+    def is_national(readings: list[PointReading]) -> bool:
         """Whether every scored point met CPCB's minimum-pollutant rule."""
         for reading in readings:
             if not reading.concentrations:
@@ -324,25 +375,55 @@ class PlanService:
         return True
 
     @staticmethod
-    def _worst_confidence(readings: list[PointReading]) -> Confidence:
+    def worst_confidence(readings: list[PointReading]) -> Confidence:
         """A route is only as trustworthy as its least-supported segment."""
         order = {Confidence.HIGH: 0, Confidence.MEDIUM: 1, Confidence.LOW: 2}
         if not readings:
             return Confidence.LOW
         return max((reading.confidence for reading in readings), key=order.__getitem__)
 
+    _is_national = is_national
+    _worst_confidence = worst_confidence
+
     def _windows(
         self,
         current_aqi: float,
         activity: Activity,
         climatology: ClimatologyProfile | None,
+        forecast: ForecastProfile | None = None,
     ) -> tuple[HourWindow, ...]:
-        """Recommended hours, from climatology when available."""
+        """Recommended hours, from forecast when available, else climatology.
+
+        A real forecast beats a climatology because it answers "what will the
+        air be at 18:00" rather than "when is it usually cleaner". The basis
+        field tells the client which one it got.
+        """
+        # Prefer forecast over climatology: it is a real prediction.
+        if forecast is not None and not forecast.is_empty:
+            windows: list[HourWindow] = []
+            for hour, aqi in forecast.cleanest_hours(limit=3):
+                windows.append(
+                    HourWindow(
+                        hour=hour,
+                        mean_aqi=aqi,
+                        category=categories.classify(aqi),
+                        dose=engine.dose_for_duration(
+                            aqi,
+                            activity=activity,
+                            duration_min=30.0,
+                            hour=None,  # type: ignore[arg-type]
+                        ),
+                        samples=1,
+                        basis="forecast",
+                    )
+                )
+            return tuple(windows)
+
         if climatology is None or climatology.is_empty:
             return ()
-        windows: list[HourWindow] = []
+        windows_clim: list[HourWindow] = []
         for hour, typical, samples in climatology.cleanest_hours(limit=3):
-            windows.append(
+            windows_clim.append(
                 HourWindow(
                     hour=hour,
                     mean_aqi=typical,
@@ -357,7 +438,7 @@ class PlanService:
                     basis="climatology",
                 )
             )
-        return tuple(windows)
+        return tuple(windows_clim)
 
 
 def hours_for_parameter(pollutant: str) -> int | None:

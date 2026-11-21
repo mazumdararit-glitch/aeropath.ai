@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime, timedelta, timezone
+from typing import ClassVar
 
 import pytest
 
@@ -188,7 +189,12 @@ class TestConcentrationAdjustment:
     directions in different bands.
     """
 
-    COMPOSITION = {"PM2.5": 95.0, "PM10": 180.0, "NO2": 70.0, "CO": 1.4}
+    COMPOSITION: ClassVar[dict[str, float]] = {
+        "PM2.5": 95.0,
+        "PM10": 180.0,
+        "NO2": 70.0,
+        "CO": 1.4,
+    }
 
     def test_scales_every_pollutant(self) -> None:
         scaled, _ = adjust_concentrations(

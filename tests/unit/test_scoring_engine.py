@@ -163,7 +163,7 @@ class TestRouteOutput:
         result = score([segment(1, 100.0, 40.0, road_class=RoadClass.MOTORWAY)], hour=9)
         seg = result.segments[0]
         assert seg.category.value != AQCategory.GOOD.value
-        assert seg.adjusted_aqi > seg.base_aqi
+        assert seg.base_aqi is not None and seg.adjusted_aqi > seg.base_aqi
 
     def test_magnitude_km(self) -> None:
         assert score([segment(1, 5200.0, 100.0)]).magnitude_km == pytest.approx(5.2)

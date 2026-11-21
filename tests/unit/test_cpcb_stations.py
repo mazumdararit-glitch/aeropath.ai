@@ -8,6 +8,7 @@ looking like success.
 
 from __future__ import annotations
 
+import itertools
 from datetime import date
 
 import httpx
@@ -56,7 +57,7 @@ class TestDayChunks:
         assert len(chunks) == 5
         assert chunks[0][0] == date(2024, 11, 1)
         assert chunks[-1][1] == date(2024, 11, 5)
-        for (_, prev_end), (next_start, _) in zip(chunks, chunks[1:], strict=False):
+        for (_, prev_end), (next_start, _) in itertools.pairwise(chunks):
             assert (next_start - prev_end).days == 1
 
     def test_rejects_inverted_range(self) -> None:

@@ -14,96 +14,26 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 
+from aeropath.api.map_ui import HTML_PAGE
+from aeropath.api.v1 import v1_router
 from aeropath.config import Settings, load_settings
 from aeropath.external.cpcb_stations import StationClient, StationDataError
-from aeropath.external.open_meteo_provider import OpenMeteoProvider
 from aeropath.external.osrm import OsrmRouter, RoutingError
-from aeropath.external.provider import GridProvider
-from aeropath.external.xkdr_provider import XkdrStationProvider
-from aeropath.schemas.common import (
-    Activity,
-    Advisory,
-    AQCategory,
-    Confidence,
-    Coordinate,
-    Sensitivity,
+from aeropath.schemas.routes import (
+    PlanRequestModel,
+    PlanResponse,
+    RouteModel,
+    WindowModel,
 )
 from aeropath.services.planning import DataUnavailableError, PlanRequest, PlanService
+from aeropath.services.provider_factory import build_provider
+from aeropath.services.scoring import street_model
 
 logger = logging.getLogger(__name__)
-
-
-class PlanRequestModel(BaseModel):
-    origin: Coordinate
-    destination: Coordinate
-    activity: Activity = Activity.WALK
-    sensitivity: Sensitivity = Sensitivity.NORMAL
-    alternate_routes: int = Field(default=2, ge=0, le=3)
-
-
-class RouteModel(BaseModel):
-    distance_m: float
-    duration_s: float
-    mean_aqi: float
-    dose: float
-    category: AQCategory
-    advisory: Advisory
-    confidence: Confidence
-    basis: str
-    unscored_fraction: float
-    is_national_aqi: bool = Field(
-        description=(
-            "False when the index rests on fewer than CPCB's three required "
-            "pollutants. The number is then a particulate sub-index, not a "
-            "national AQI, and must be labelled as such in any UI."
-        )
-    )
-    pollutants_used: int = Field(
-        description="How many pollutants the index was computed from."
-    )
-
-
-class WindowModel(BaseModel):
-    hour: int
-    mean_aqi: float
-    category: AQCategory
-    dose: float
-    samples: int
-    basis: str
-
-
-class PlanResponse(BaseModel):
-    routes: list[RouteModel]
-    best_windows: list[WindowModel]
-    generated_at: datetime
-    data_source: str
-    data_date: str | None = Field(
-        default=None,
-        description=(
-            "The day the measurements describe. CPCB ingestion lags, so this is "
-            "usually older than generated_at. Never assume they match."
-        ),
-    )
-    data_note: str = Field(
-        default="",
-        description="Caveats that apply to every number in this response.",
-    )
-
-
-def build_provider(settings: Settings) -> GridProvider:
-    """Construct the configured grid provider.
-
-    Kept as a function rather than inline so the choice is testable and so a new
-    source is one branch, not a scattered edit.
-    """
-    key = settings.require_provider_key()
-    if settings.grid_provider == "xkdr":
-        assert key is not None
-        return XkdrStationProvider(key)
-    return OpenMeteoProvider()
 
 
 def create_app(
@@ -123,6 +53,16 @@ def create_app(
         version="0.1.0",
     )
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    app.include_router(v1_router)
+
     def get_service() -> PlanService:
         if service is not None:
             return service
@@ -132,25 +72,76 @@ def create_app(
         router = OsrmRouter(
             resolved.osrm_base_url, timeout_s=resolved.osrm_timeout_s
         )
-        return PlanService(provider, router)
+        street_params = (
+            street_model.DEFAULT_MODEL
+            if resolved.street_model_version == "rules_v1"
+            else street_model.IDENTITY_MODEL
+        )
+        return PlanService(provider, router, street_params=street_params)
 
     @app.get("/")
-    async def root() -> dict[str, object]:
+    async def root(request: Request) -> Response:
         """Landing route.
 
-        Without this, opening http://localhost:8000/ returns 404, which reads as
-        "the server is broken" rather than "there is nothing here by design".
+        Renders the interactive map UI directly in web browsers, while returning
+        service metadata as JSON for API clients and automated tests.
         """
-        return {
-            "service": "AEROPATH",
-            "version": "0.1.0",
-            "provider": resolved.grid_provider,
-            "docs": "/docs",
-            "health": "/healthz",
-            "plan": "POST /v1/plan",
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept:
+            return HTMLResponse(HTML_PAGE)
+        return JSONResponse(
+            {
+                "service": "AEROPATH",
+                "version": "0.1.0",
+                "provider": resolved.grid_provider,
+                "docs": "/docs",
+                "map": "/map",
+                "health": "/health",
+                "plan": "POST /v1/plan",
+                "airquality": "GET /v1/airquality",
+                "routes_loop": "POST /v1/routes/loop",
+                "profile": "GET /v1/profile",
+                "places": "GET /v1/places",
+            }
+        )
+
+    @app.get("/map", response_class=HTMLResponse)
+    async def map_view() -> HTMLResponse:
+        """Interactive map UI with Leaflet and live air quality overlay."""
+        return HTMLResponse(HTML_PAGE)
+
+    @app.get("/v1/geocode")
+    async def geocode(q: str) -> list[dict[str, object]]:
+        """Search addresses and landmarks via Nominatim with proper headers."""
+        import httpx
+        url = "https://nominatim.openstreetmap.org/search"
+        params: dict[str, str | int] = {
+            "format": "json",
+            "q": q,
+            "limit": 5,
+            "countrycodes": "in",
         }
+        headers = {"User-Agent": "AEROPATH/0.1 (air quality route planner)"}
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                res = await client.get(url, params=params, headers=headers)
+                if res.status_code == 200:
+                    data = res.json()
+                    return [
+                        {
+                            "name": str(item.get("display_name")),
+                            "lat": float(item["lat"]),
+                            "lng": float(item["lon"]),
+                        }
+                        for item in data
+                        if "lat" in item and "lon" in item
+                    ]
+        except Exception as exc:
+            logger.debug("Geocode lookup failed: %s", exc)
+        return []
 
     @app.get("/healthz")
+    @app.get("/health")
     async def healthz() -> dict[str, object]:
         return {
             "status": "ok",
@@ -239,6 +230,7 @@ def create_app(
                     confidence=route.aqi_confidence,
                     basis=route.basis,
                     unscored_fraction=route.score.unscored_fraction,
+                    geometry=list(route.geometry),
                     is_national_aqi=route.is_national_aqi,
                     pollutants_used=route.pollutants_used,
                 )

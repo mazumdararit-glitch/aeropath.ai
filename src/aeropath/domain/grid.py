@@ -33,7 +33,7 @@ def validate_resolution(resolution: int) -> int:
 def cell_for(coordinate: Coordinate, resolution: int = DEFAULT_RESOLUTION) -> str:
     """The H3 cell containing a point."""
     validate_resolution(resolution)
-    return h3.latlng_to_cell(coordinate.lat, coordinate.lng, resolution)
+    return str(h3.latlng_to_cell(coordinate.lat, coordinate.lng, resolution))
 
 
 def cell_center(cell: str) -> Coordinate:
@@ -48,11 +48,11 @@ def cell_boundary(cell: str) -> tuple[Coordinate, ...]:
 
 
 def cell_resolution(cell: str) -> int:
-    return h3.get_resolution(cell)
+    return int(h3.get_resolution(cell))
 
 
 def cell_area_km2(cell: str) -> float:
-    return h3.cell_area(cell, unit="km^2")
+    return float(h3.cell_area(cell, unit="km^2"))
 
 
 def neighbours(cell: str) -> tuple[str, ...]:
@@ -61,7 +61,7 @@ def neighbours(cell: str) -> tuple[str, ...]:
 
 def parent(cell: str, resolution: int) -> str:
     validate_resolution(resolution)
-    return h3.cell_to_parent(cell, resolution)
+    return str(h3.cell_to_parent(cell, resolution))
 
 
 def children(cell: str, resolution: int) -> tuple[str, ...]:

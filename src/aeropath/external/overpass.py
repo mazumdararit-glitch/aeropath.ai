@@ -76,7 +76,11 @@ def parse_response(
     green: list[NearbyArea] = []
     water: list[NearbyArea] = []
 
-    for element in payload.get("elements", []):
+    elements = payload.get("elements")
+    if not isinstance(elements, list):
+        return [], [], []
+
+    for element in elements:
         if not isinstance(element, dict) or element.get("type") != "way":
             continue
         geometry = element.get("geometry")

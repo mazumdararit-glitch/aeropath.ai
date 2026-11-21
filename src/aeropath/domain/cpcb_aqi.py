@@ -22,6 +22,7 @@ Rules that matter (CPCB, "About National AQI"):
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 
 from aeropath.schemas.common import AQCategory
@@ -203,7 +204,7 @@ def sub_index(pollutant: str, concentration: float) -> float:
     if concentration >= anchors[-1][0]:
         return AQI_CEILING
 
-    for (low_c, low_aqi), (high_c, high_aqi) in zip(anchors, anchors[1:], strict=True):
+    for (low_c, low_aqi), (high_c, high_aqi) in itertools.pairwise(anchors):
         if concentration <= high_c:
             span = high_c - low_c
             if span <= 0:

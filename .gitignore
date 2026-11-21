@@ -14,6 +14,7 @@ venv/
 .coverage
 coverage.xml
 htmlcov/
+*.log
 
 # Local data caches. These are reproducible from the public APIs and are
 # large, so they stay out of history.
@@ -30,6 +31,7 @@ scratch/osm_cache/
 # the README instead.
 .env
 .env.*
+!.env.example
 
 # Agent/tooling state
 .commandcode/

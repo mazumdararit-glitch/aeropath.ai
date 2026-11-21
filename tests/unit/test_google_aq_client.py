@@ -34,7 +34,10 @@ def _hour_info(hour: str, *, aqi: float = 120.0, code: str = INDEX_CODE) -> dict
             {"code": code, "aqi": aqi, "category": "Moderate", "dominantPollutant": "pm25"},
         ],
         "pollutants": [
-            {"code": "pm25", "concentration": {"value": 61.0, "units": "MICROGRAMS_PER_CUBIC_METER"}}
+            {
+                "code": "pm25",
+                "concentration": {"value": 61.0, "units": "MICROGRAMS_PER_CUBIC_METER"},
+            }
         ],
     }
 
@@ -43,7 +46,9 @@ class TestHistoryEndpoint:
     @respx.mock
     async def test_posts_to_history_lookup_not_forecast(self) -> None:
         route = respx.post("https://airquality.googleapis.com/v1/history:lookup").mock(
-            return_value=httpx.Response(200, json={"hoursInfo": [_hour_info("2024-11-01T00:00:00Z")]})
+            return_value=httpx.Response(
+                200, json={"hoursInfo": [_hour_info("2024-11-01T00:00:00Z")]}
+            )
         )
         async with GoogleAirQualityClient("key") as client:
             await client.fetch_history(KOLKATA, cell="h3-1", hours=24)
@@ -56,7 +61,9 @@ class TestHistoryEndpoint:
     @respx.mock
     async def test_pins_ind_cpcb_and_disables_universal(self) -> None:
         route = respx.post("https://airquality.googleapis.com/v1/history:lookup").mock(
-            return_value=httpx.Response(200, json={"hoursInfo": [_hour_info("2024-11-01T00:00:00Z")]})
+            return_value=httpx.Response(
+                200, json={"hoursInfo": [_hour_info("2024-11-01T00:00:00Z")]}
+            )
         )
         async with GoogleAirQualityClient("key") as client:
             await client.fetch_history(KOLKATA, cell="h3-1", hours=24)

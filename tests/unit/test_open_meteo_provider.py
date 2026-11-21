@@ -152,3 +152,42 @@ class TestUnitsAndOddities:
             reading = (await provider.concentrations_at([DELHI]))[0]
         assert reading.observed_at is not None
         assert reading.observed_at.year == 2026
+
+
+class TestHourlyForecast:
+    @respx.mock
+    async def test_returns_hourly_concentrations(self) -> None:
+        payload = {
+            "latitude": DELHI.lat,
+            "longitude": DELHI.lng,
+            "hourly": {
+                "time": ["2026-11-21T01:00", "2026-11-21T02:00"],
+                "pm2_5": [50.0, 45.0],
+                "pm10": [80.0, 70.0],
+                "nitrogen_dioxide": [30.0, 25.0],
+                "sulphur_dioxide": [15.0, 10.0],
+                "carbon_monoxide": [1200.0, 1000.0],
+                "ozone": [20.0, 22.0],
+            },
+        }
+        respx.get(f"{BASE}/v1/air-quality").mock(
+            return_value=httpx.Response(200, json=payload)
+        )
+        async with OpenMeteoProvider() as provider:
+            forecast = await provider.hourly_forecast(DELHI, hours=2)
+
+        assert len(forecast) == 2
+        assert forecast[0]["PM2.5"] == pytest.approx(50.0)
+        # CO in mg/m³
+        assert forecast[0]["CO"] == pytest.approx(1.2)
+        assert forecast[1]["PM2.5"] == pytest.approx(45.0)
+        assert forecast[1]["CO"] == pytest.approx(1.0)
+
+    @respx.mock
+    async def test_handles_http_error(self) -> None:
+        respx.get(f"{BASE}/v1/air-quality").mock(
+            return_value=httpx.Response(500)
+        )
+        async with OpenMeteoProvider() as provider:
+            forecast = await provider.hourly_forecast(DELHI, hours=24)
+        assert forecast == {}
