@@ -64,6 +64,13 @@ file, so a key cannot be committed by accident:
 | `XKDR_API_KEY` | — | only read when `GRID_PROVIDER=xkdr` |
 | `OSRM_BASE_URL` | `router.project-osrm.org` | routing backend |
 | `CACHE_TTL_S` | `900` | provider cache lifetime |
+| `CORS_ORIGINS` | `[]` | Allowed frontend origins. Starlette forbids `["*"]` when `allow_credentials=True`. In production, set to explicit origins e.g. `["https://app.aeropath.ai"]` |
+
+### Security & Secret Scanning
+
+- `.env` and `.env.*` files are strictly gitignored. Only `.env.example` is committed with placeholder values.
+- Automated secret scanning is enforced on every push/PR via Gitleaks in GitHub Actions (`.github/workflows/ci.yml`) and local `.pre-commit-config.yaml`.
+- Starlette CORS credentials policy requires explicit allowed origins; wildcard `*` is disallowed when credentials are enabled.
 
 ## Layout
 
