@@ -46,4 +46,6 @@ jobs:
         run: mypy src
 
       - name: Run Pytest Suite
-        run: pytest tests -v
+        run: python -m pytest tests -v
+        env:
+          PYTHONPATH: src
