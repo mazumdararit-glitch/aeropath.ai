@@ -95,7 +95,8 @@ def dedupe_colocated(
         duplicate = None
         for other in kept:
             distance = haversine_km(  # type: ignore[attr-defined]
-                station.coordinate, other.coordinate  # type: ignore[attr-defined]
+                station.coordinate,
+                other.coordinate,  # type: ignore[attr-defined]
             )
             if distance <= COLOCATED_KM:
                 duplicate = (station.station_id, other.station_id, distance)  # type: ignore[attr-defined]
@@ -121,9 +122,7 @@ def station_residuals(
         for sid, actual in readings.items():
             if actual <= 0:
                 continue
-            others = {
-                s: v for s, v in readings.items() if s != sid and s in coords
-            }
+            others = {s: v for s, v in readings.items() if s != sid and s in coords}
             if not others:
                 continue
 
@@ -243,9 +242,7 @@ def eta_squared_p_value(
     sample size.
     """
     observed = eta_squared(groups)
-    labels: list[RoadClass] = [
-        label for label, values in groups.items() for _ in values
-    ]
+    labels: list[RoadClass] = [label for label, values in groups.items() for _ in values]
     values = [v for group in groups.values() for v in group]
     rng = random.Random(seed)
     hits = 0
@@ -391,15 +388,12 @@ def main() -> int:
             "residuals; refitting its factors cannot fix that."
         )
     elif eta < 0.25:
-        lines.append(
-            "  -> Detectable but weak. Road class is a poor proxy even where it is real."
-        )
+        lines.append("  -> Detectable but weak. Road class is a poor proxy even where it is real.")
     else:
         lines.append("  -> Road class carries real signal; refitting is justified.")
 
     lines.append("")
-    lines.append(
-        "A positive residual means the station is dirtier than its neighbours predict.")
+    lines.append("A positive residual means the station is dirtier than its neighbours predict.")
     lines.append(
         "If the busier classes are not systematically more positive, road_factor is "
         "not supported by this network."

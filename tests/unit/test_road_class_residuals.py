@@ -64,9 +64,7 @@ class TestDedupeColocated:
         backward = list(reversed(forward))
         kept_forward, _ = dedupe_colocated(forward)
         kept_backward, _ = dedupe_colocated(backward)
-        assert [s.station_id for s in kept_forward] == [
-            s.station_id for s in kept_backward
-        ]
+        assert [s.station_id for s in kept_forward] == [s.station_id for s in kept_backward]
 
 
 class TestStationResiduals:

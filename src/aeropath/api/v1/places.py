@@ -68,9 +68,7 @@ async def delete_place(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> None:
     """Delete a saved place and cascade to related alert configs."""
-    stmt = select(SavedPlace).where(
-        SavedPlace.id == place_id, SavedPlace.user_id == user.id
-    )
+    stmt = select(SavedPlace).where(SavedPlace.id == place_id, SavedPlace.user_id == user.id)
     result = await db.execute(stmt)
     place = result.scalars().first()
     if place is None:
@@ -104,9 +102,7 @@ async def list_alerts(
     return [AlertConfigResponse.model_validate(a) for a in result.scalars().all()]
 
 
-@alerts_router.post(
-    "", response_model=AlertConfigResponse, status_code=status.HTTP_201_CREATED
-)
+@alerts_router.post("", response_model=AlertConfigResponse, status_code=status.HTTP_201_CREATED)
 async def create_alert(
     body: AlertConfigCreate,
     user: Annotated[User, Depends(get_current_user)],

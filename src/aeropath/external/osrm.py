@@ -71,9 +71,7 @@ class OsrmRouter:
         wait=wait_exponential(multiplier=0.2, min=0.2, max=1.0),
         reraise=True,
     )
-    async def _get_with_retry(
-        self, path: str, *, params: dict[str, str]
-    ) -> httpx.Response:
+    async def _get_with_retry(self, path: str, *, params: dict[str, str]) -> httpx.Response:
         return await self._client.get(path, params=params)
 
     async def route_waypoints(
@@ -99,9 +97,7 @@ class OsrmRouter:
             params["alternatives"] = str(alternatives)
 
         try:
-            response = await self._get_with_retry(
-                f"/route/v1/{profile}/{coords}", params=params
-            )
+            response = await self._get_with_retry(f"/route/v1/{profile}/{coords}", params=params)
         except httpx.HTTPError as exc:
             raise RoutingError(f"routing request failed after retries: {exc}") from exc
 
@@ -111,9 +107,7 @@ class OsrmRouter:
                 "self-host a router"
             )
         if response.status_code != httpx.codes.OK:
-            raise RoutingError(
-                f"routing failed: {response.status_code} {response.text[:300]}"
-            )
+            raise RoutingError(f"routing failed: {response.status_code} {response.text[:300]}")
 
         payload = response.json()
         if payload.get("code") != "Ok":
@@ -136,9 +130,7 @@ class OsrmRouter:
             routes.append(
                 RouteGeometry(
                     # GeoJSON is [lon, lat].
-                    coordinates=tuple(
-                        Coordinate(lat=point[1], lng=point[0]) for point in raw
-                    ),
+                    coordinates=tuple(Coordinate(lat=point[1], lng=point[0]) for point in raw),
                     distance_m=float(entry["distance"]),
                     duration_s=float(entry["duration"]),
                     step_names=tuple(steps_list),

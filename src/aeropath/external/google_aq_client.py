@@ -190,9 +190,7 @@ class GoogleAirQualityClient:
         else:
             body["hours"] = hours
 
-        return await self._paginate(
-            "/v1/history:lookup", body, cell=cell, list_key="hoursInfo"
-        )
+        return await self._paginate("/v1/history:lookup", body, cell=cell, list_key="hoursInfo")
 
     async def _paginate(
         self, path: str, body: dict[str, object], *, cell: str, list_key: str
@@ -205,9 +203,7 @@ class GoogleAirQualityClient:
             payload = dict(body)
             if token:
                 payload["pageToken"] = token
-            response = await self._client.post(
-                path, params={"key": self._api_key}, json=payload
-            )
+            response = await self._client.post(path, params={"key": self._api_key}, json=payload)
             page_count += 1
 
             if response.status_code != httpx.codes.OK:
@@ -216,9 +212,7 @@ class GoogleAirQualityClient:
                 )
 
             data = response.json()
-            collected.extend(
-                _parse_hourly_entries(data, cell=cell, list_key=list_key)
-            )
+            collected.extend(_parse_hourly_entries(data, cell=cell, list_key=list_key))
 
             token = data.get("nextPageToken")
             if not token:
@@ -259,9 +253,7 @@ class GoogleAirQualityClient:
         return parsed[0]
 
 
-def _parse_hourly_entries(
-    data: dict[str, object], *, cell: str, list_key: str
-) -> list[HourlyCell]:
+def _parse_hourly_entries(data: dict[str, object], *, cell: str, list_key: str) -> list[HourlyCell]:
     """Parse an entry list, keyed by whichever field this endpoint uses.
 
     ``forecast`` and ``history`` name the list differently (``hourlyForecasts``
@@ -287,9 +279,7 @@ def _parse_hourly_entries(
             for p in entry.get("pollutants", [])
             if isinstance(p, dict) and "code" in p and "concentration" in p
         }
-        dominant = (
-            str(index["dominantPollutant"]) if index.get("dominantPollutant") else None
-        )
+        dominant = str(index["dominantPollutant"]) if index.get("dominantPollutant") else None
         out.append(
             HourlyCell(
                 cell=cell,
@@ -318,9 +308,7 @@ class GoogleAirQualityProvider:
 
     name: str = "google_air_quality"
 
-    def __init__(
-        self, api_key: str, *, client: GoogleAirQualityClient | None = None
-    ) -> None:
+    def __init__(self, api_key: str, *, client: GoogleAirQualityClient | None = None) -> None:
         self._api_key = api_key
         self._client = client or GoogleAirQualityClient(api_key=api_key)
 
@@ -356,4 +344,3 @@ class GoogleAirQualityProvider:
                 )
             )
         return readings
-

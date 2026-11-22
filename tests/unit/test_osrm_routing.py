@@ -70,9 +70,7 @@ class TestOsrmRouter:
 
     @respx.mock
     async def test_rate_limit_is_a_clear_error(self) -> None:
-        respx.get(url__startswith=f"{OSRM}/route/").mock(
-            return_value=httpx.Response(429)
-        )
+        respx.get(url__startswith=f"{OSRM}/route/").mock(return_value=httpx.Response(429))
         async with OsrmRouter() as router:
             with pytest.raises(RoutingError, match="rate limiting"):
                 await router.route(Coordinate(lat=1, lng=1), Coordinate(lat=2, lng=2))

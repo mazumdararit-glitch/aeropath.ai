@@ -170,9 +170,7 @@ class TestHourlyForecast:
                 "ozone": [20.0, 22.0],
             },
         }
-        respx.get(f"{BASE}/v1/air-quality").mock(
-            return_value=httpx.Response(200, json=payload)
-        )
+        respx.get(f"{BASE}/v1/air-quality").mock(return_value=httpx.Response(200, json=payload))
         async with OpenMeteoProvider() as provider:
             forecast = await provider.hourly_forecast(DELHI, hours=2)
 
@@ -185,9 +183,7 @@ class TestHourlyForecast:
 
     @respx.mock
     async def test_handles_http_error(self) -> None:
-        respx.get(f"{BASE}/v1/air-quality").mock(
-            return_value=httpx.Response(500)
-        )
+        respx.get(f"{BASE}/v1/air-quality").mock(return_value=httpx.Response(500))
         async with OpenMeteoProvider() as provider:
             forecast = await provider.hourly_forecast(DELHI, hours=24)
         assert forecast == {}

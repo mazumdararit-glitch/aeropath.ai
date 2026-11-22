@@ -99,8 +99,13 @@ class TestLatestAvailableDay:
             start = request.url.params.get("start", "")
             if start.startswith("2026-03"):
                 # Newest month exists but only reports one pollutant: unusable.
-                return httpx.Response(200, json={"meta": {"rows": 1, "truncated": False},
-                                                 "data": [_measurement("s1", "PM2.5")]})
+                return httpx.Response(
+                    200,
+                    json={
+                        "meta": {"rows": 1, "truncated": False},
+                        "data": [_measurement("s1", "PM2.5")],
+                    },
+                )
             return httpx.Response(
                 200,
                 json={

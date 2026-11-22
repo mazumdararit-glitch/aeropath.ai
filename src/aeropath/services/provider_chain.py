@@ -99,10 +99,7 @@ class FallbackProviderChain:
         last_exc: Exception | None = None
         for provider in self.providers:
             # Check budget limit for primary provider
-            if (
-                provider == self.providers[0]
-                and self.requests_made >= self.request_budget_limit
-            ):
+            if provider == self.providers[0] and self.requests_made >= self.request_budget_limit:
                 logger.warning(
                     "Request budget reached for %s (%d/%d); falling back",
                     provider.name,

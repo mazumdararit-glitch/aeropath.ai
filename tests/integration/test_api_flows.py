@@ -129,7 +129,8 @@ def integration_client() -> TestClient:
     app = create_app(settings, service=service)
     app.dependency_overrides[get_grid_provider] = lambda: grid
     app.dependency_overrides[get_loop_generator] = lambda: LoopGenerator(
-        grid, router  # type: ignore[arg-type]
+        grid,
+        router,  # type: ignore[arg-type]
     )
     return TestClient(app)
 

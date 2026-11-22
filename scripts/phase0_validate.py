@@ -197,11 +197,15 @@ def attach_osm_context(
         (LineString([(lon, lat) for lat, lon in w.nodes]), w.highway) for w in ways
     ]
     green_geoms: list[object] = [
-        Polygon([(lon, lat) for lat, lon in a.nodes]) if len(a.nodes) >= 3 else LineString([(lon, lat) for lat, lon in a.nodes])
+        Polygon([(lon, lat) for lat, lon in a.nodes])
+        if len(a.nodes) >= 3
+        else LineString([(lon, lat) for lat, lon in a.nodes])
         for a in green
     ]
     water_geoms: list[object] = [
-        Polygon([(lon, lat) for lat, lon in a.nodes]) if len(a.nodes) >= 3 else LineString([(lon, lat) for lat, lon in a.nodes])
+        Polygon([(lon, lat) for lat, lon in a.nodes])
+        if len(a.nodes) >= 3
+        else LineString([(lon, lat) for lat, lon in a.nodes])
         for a in water
     ]
 
@@ -346,9 +350,7 @@ def run_station_loo(
         "stations": {
             "count": len(stations),
             "with_road_context": len(stations_with_road_context),
-            "road_classes": {
-                sid: ctx.road_class.value for sid, ctx in contexts.items()
-            },
+            "road_classes": {sid: ctx.road_class.value for sid, ctx in contexts.items()},
         },
         "per_station_mape": {
             sid: {
@@ -417,9 +419,7 @@ async def main() -> int:
     )
     parser.add_argument("--min-stations", type=int, default=4)
     parser.add_argument("--days", type=int, default=14)
-    parser.add_argument(
-        "--start", default=None, help="YYYY-MM-DD (default: --days before --end)"
-    )
+    parser.add_argument("--start", default=None, help="YYYY-MM-DD (default: --days before --end)")
     parser.add_argument(
         "--end",
         default=None,
@@ -565,16 +565,12 @@ async def _validate_one(
     return results
 
 
-async def _run_cities(
-    args: argparse.Namespace, *, start: date, end: date, days: int
-) -> int:
+async def _run_cities(args: argparse.Namespace, *, start: date, end: date, days: int) -> int:
     """Validate city by city across the network, densest first."""
     try:
         async with StationClient(**({"api_key": args.api_key} if args.api_key else {})) as client:  # type: ignore[arg-type]
             all_stations = (
-                await client.stations(state=args.state)
-                if args.state
-                else await client.stations()
+                await client.stations(state=args.state) if args.state else await client.stations()
             )
     except StationDataError as exc:
         print(f"station list unavailable: {exc}", file=sys.stderr)

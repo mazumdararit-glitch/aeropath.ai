@@ -77,9 +77,7 @@ class OpenMeteoProvider:
         min_completeness_24h: float = 16 / 24,
         min_completeness_8h: float = 6 / 8,
     ) -> None:
-        self._client = httpx.AsyncClient(
-            base_url=BASE_URL, timeout=timeout_s, transport=transport
-        )
+        self._client = httpx.AsyncClient(base_url=BASE_URL, timeout=timeout_s, transport=transport)
         self._ozone_damping_factor = ozone_damping_factor
         self._min_completeness_24h = min_completeness_24h
         self._min_completeness_8h = min_completeness_8h
@@ -131,9 +129,7 @@ class OpenMeteoProvider:
             return [self._empty(point) for point in points]
 
         if response.status_code != httpx.codes.OK:
-            logger.warning(
-                "open-meteo returned %s: %s", response.status_code, response.text[:200]
-            )
+            logger.warning("open-meteo returned %s: %s", response.status_code, response.text[:200])
             return [self._empty(point) for point in points]
 
         payload = response.json()
@@ -174,9 +170,7 @@ class OpenMeteoProvider:
                 mean_val: float | None = None
                 if series_vals and isinstance(series_vals, list) and len(series_vals) > 0:
                     window = (
-                        series_vals[-req_window:]
-                        if len(series_vals) >= req_window
-                        else series_vals
+                        series_vals[-req_window:] if len(series_vals) >= req_window else series_vals
                     )
                     valid = [float(v) for v in window if v is not None]
                     if len(valid) >= min_valid:

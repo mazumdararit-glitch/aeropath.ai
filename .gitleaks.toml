@@ -1,0 +1,17 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowed test placeholders and fixtures"
+regexes = [
+    '''test[_-]key''',
+    '''dummy[_-]key''',
+    '''integration[_-]key''',
+    '''test_token''',
+    '''pk_live_placeholder''',
+]
+paths = [
+    '''tests/.*''',
+    '''\.env\.example''',
+    '''tests/fixtures/.*''',
+]

@@ -352,9 +352,7 @@ class PlanService:
             except Exception as exc:
                 logger.debug("could not fetch forecast for best_windows: %s", exc)
 
-        windows = self._windows(
-            ordered[0].score.mean_aqi, request.activity, climatology, forecast
-        )
+        windows = self._windows(ordered[0].score.mean_aqi, request.activity, climatology, forecast)
 
         return Plan(
             routes=ordered,
@@ -391,9 +389,7 @@ class PlanService:
         ``is_national_aqi=False``. Weaker and labelled beats absent.
         """
         if len(segments) != len(readings):
-            raise ValueError(
-                f"segment/reading mismatch: {len(segments)} vs {len(readings)}"
-            )
+            raise ValueError(f"segment/reading mismatch: {len(segments)} vs {len(readings)}")
 
         out: list[engine.SegmentInput] = []
         for segment, reading in zip(segments, readings, strict=True):
@@ -420,9 +416,7 @@ class PlanService:
         # Fall back to a partial index. require_minimum=False is explicitly the
         # single-pollutant path, so this is a deliberate downgrade, not a bug.
         try:
-            return cpcb_aqi.compute(
-                reading.concentrations, require_minimum=False
-            ).aqi
+            return cpcb_aqi.compute(reading.concentrations, require_minimum=False).aqi
         except InsufficientDataError:
             return None
 

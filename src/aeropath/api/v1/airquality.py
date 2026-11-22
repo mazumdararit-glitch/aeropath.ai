@@ -58,8 +58,7 @@ async def get_current_airquality(
     advisory = categories.advisory(res.category, sensitivity)
 
     averaging_map = {
-        pollutant: str(hrs)
-        for pollutant, hrs in (reading.averaging_hours or {}).items()
+        pollutant: str(hrs) for pollutant, hrs in (reading.averaging_hours or {}).items()
     }
 
     return AirQualityPointResponse(

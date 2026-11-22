@@ -96,18 +96,23 @@ def evaluate_leave_one_out(
                     )
                     tot_w = sum(weights.values())
                     if tot_w > 0:
-                        idw_val = sum(
-                            val * weights[s["station_id"]]
-                            for s, val in rem_with_reading
-                            if s["station_id"] in weights
-                        ) / tot_w
+                        idw_val = (
+                            sum(
+                                val * weights[s["station_id"]]
+                                for s, val in rem_with_reading
+                                if s["station_id"] in weights
+                            )
+                            / tot_w
+                        )
 
-                pairs_by_pollutant[poll].append({
-                    "actual": actual,
-                    "model": model_val,
-                    "corrected": corrected_val,
-                    "idw": idw_val,
-                })
+                pairs_by_pollutant[poll].append(
+                    {
+                        "actual": actual,
+                        "model": model_val,
+                        "corrected": corrected_val,
+                        "idw": idw_val,
+                    }
+                )
 
         # Calculate metrics for each pollutant
         pollutant_metrics: dict[str, Any] = {}
@@ -136,16 +141,22 @@ def evaluate_leave_one_out(
 
             # Category agreement
             m_cat = sum(
-                1 for p in pairs
-                if _aqi_category_for(pollutant, p["model"]) == _aqi_category_for(pollutant, p["actual"])
+                1
+                for p in pairs
+                if _aqi_category_for(pollutant, p["model"])
+                == _aqi_category_for(pollutant, p["actual"])
             )
             c_cat = sum(
-                1 for p in pairs
-                if _aqi_category_for(pollutant, p["corrected"]) == _aqi_category_for(pollutant, p["actual"])
+                1
+                for p in pairs
+                if _aqi_category_for(pollutant, p["corrected"])
+                == _aqi_category_for(pollutant, p["actual"])
             )
             i_cat = sum(
-                1 for p in pairs
-                if _aqi_category_for(pollutant, p["idw"]) == _aqi_category_for(pollutant, p["actual"])
+                1
+                for p in pairs
+                if _aqi_category_for(pollutant, p["idw"])
+                == _aqi_category_for(pollutant, p["actual"])
             )
 
             pollutant_metrics[pollutant] = {
@@ -168,16 +179,21 @@ def evaluate_leave_one_out(
                     "bias": round(i_bias, 2),
                     "category_agreement": round(100.0 * i_cat / n, 1),
                 },
-                "mae_reduction_pct": round(100.0 * (m_mae - c_mae) / m_mae, 1) if m_mae > 0 else 0.0,
+                "mae_reduction_pct": round(100.0 * (m_mae - c_mae) / m_mae, 1)
+                if m_mae > 0
+                else 0.0,
                 "idw_mae_reduction_pct": round(100.0 * (m_mae - i_mae) / m_mae, 1)
-                if m_mae > 0 else 0.0,
+                if m_mae > 0
+                else 0.0,
             }
 
-        cities_results.append({
-            "city": city,
-            "station_count": len(stations),
-            "pollutants": pollutant_metrics,
-        })
+        cities_results.append(
+            {
+                "city": city,
+                "station_count": len(stations),
+                "pollutants": pollutant_metrics,
+            }
+        )
 
     return cities_results
 
@@ -209,15 +225,17 @@ def export_markdown(results: list[dict[str, Any]], output_path: Path) -> None:
             )
             lines.append(row)
 
-    lines.extend([
-        "",
-        "### Key Findings",
-        "- **IDW Spatial Spatial Smoothness:** Inverse Distance Weighting captures localized "
-        "spatial concentration gradients between stations, achieving the lowest overall MAE.",
-        "- **Fallback Protection:** When fewer than 3 stations are within radius, the model "
-        "falls back seamlessly to nearest-station bias correction.",
-        "- **Category Fidelity:** CPCB AQI category agreement reaches ~90%+ across all cities.",
-    ])
+    lines.extend(
+        [
+            "",
+            "### Key Findings",
+            "- **IDW Spatial Spatial Smoothness:** Inverse Distance Weighting captures localized "
+            "spatial concentration gradients between stations, achieving the lowest overall MAE.",
+            "- **Fallback Protection:** When fewer than 3 stations are within radius, the model "
+            "falls back seamlessly to nearest-station bias correction.",
+            "- **Category Fidelity:** CPCB AQI category agreement reaches ~90%+ across all cities.",
+        ]
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -228,48 +246,52 @@ def export_csv(results: list[dict[str, Any]], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "city",
-            "pollutant",
-            "samples",
-            "model_mae",
-            "corrected_mae",
-            "idw_mae",
-            "mae_reduction_pct",
-            "model_rmse",
-            "corrected_rmse",
-            "idw_rmse",
-            "model_bias",
-            "corrected_bias",
-            "idw_bias",
-            "model_category_agreement_pct",
-            "corrected_category_agreement_pct",
-            "idw_category_agreement_pct",
-        ])
+        writer.writerow(
+            [
+                "city",
+                "pollutant",
+                "samples",
+                "model_mae",
+                "corrected_mae",
+                "idw_mae",
+                "mae_reduction_pct",
+                "model_rmse",
+                "corrected_rmse",
+                "idw_rmse",
+                "model_bias",
+                "corrected_bias",
+                "idw_bias",
+                "model_category_agreement_pct",
+                "corrected_category_agreement_pct",
+                "idw_category_agreement_pct",
+            ]
+        )
         for city_res in results:
             city = city_res["city"]
             for poll, m in city_res["pollutants"].items():
                 mod = m["model_only"]
                 corr = m["bias_corrected"]
                 idw = m["idw"]
-                writer.writerow([
-                    city,
-                    poll,
-                    m["n_samples"],
-                    mod["mae"],
-                    corr["mae"],
-                    idw["mae"],
-                    m["idw_mae_reduction_pct"],
-                    mod["rmse"],
-                    corr["rmse"],
-                    idw["rmse"],
-                    mod["bias"],
-                    corr["bias"],
-                    idw["bias"],
-                    mod["category_agreement"],
-                    corr["category_agreement"],
-                    idw["category_agreement"],
-                ])
+                writer.writerow(
+                    [
+                        city,
+                        poll,
+                        m["n_samples"],
+                        mod["mae"],
+                        corr["mae"],
+                        idw["mae"],
+                        m["idw_mae_reduction_pct"],
+                        mod["rmse"],
+                        corr["rmse"],
+                        idw["rmse"],
+                        mod["bias"],
+                        corr["bias"],
+                        idw["bias"],
+                        mod["category_agreement"],
+                        corr["category_agreement"],
+                        idw["category_agreement"],
+                    ]
+                )
 
 
 def main() -> None:

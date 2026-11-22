@@ -67,9 +67,7 @@ class TestBuildContext:
             (LineString([(88.3601, 22.5495), (88.3601, 22.5505)]), "footway"),
             (LineString([(88.3602, 22.5495), (88.3602, 22.5505)]), "trunk"),
         ]
-        context = build_context(
-            point, roads=roads, green_areas=[], water=[], crs="EPSG:32646"
-        )
+        context = build_context(point, roads=roads, green_areas=[], water=[], crs="EPSG:32646")
         assert context.road_class.value == "trunk"
 
     def test_prefers_the_genuinely_nearest_when_far_apart(self) -> None:
@@ -78,9 +76,7 @@ class TestBuildContext:
             (LineString([(88.3601, 22.5495), (88.3601, 22.5505)]), "footway"),
             (LineString([(88.4000, 22.5500), (88.4000, 22.5600)]), "trunk"),
         ]
-        context = build_context(
-            point, roads=roads, green_areas=[], water=[], crs="EPSG:32646"
-        )
+        context = build_context(point, roads=roads, green_areas=[], water=[], crs="EPSG:32646")
         assert context.road_class.value == "footway"
 
     def test_empty_context_is_unknown_not_guessed(self) -> None:
@@ -107,8 +103,6 @@ class TestBuildContext:
                 (88.3627, 22.5512),
             ]
         )
-        context = build_context(
-            point, roads=[], green_areas=[park], water=[], crs="EPSG:32646"
-        )
+        context = build_context(point, roads=[], green_areas=[park], water=[], crs="EPSG:32646")
         assert context.green_distance_m is not None
         assert 100 < context.green_distance_m < 500

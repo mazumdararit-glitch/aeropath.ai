@@ -106,9 +106,7 @@ def rolling_aqi(
     return cpcb_aqi.compute(concentrations, require_minimum=require_minimum)
 
 
-def window_stats(
-    series: dict[str, dict[datetime, float]], *, at: datetime
-) -> WindowStats:
+def window_stats(series: dict[str, dict[datetime, float]], *, at: datetime) -> WindowStats:
     """How complete each pollutant's averaging window is at ``at``."""
     available: dict[str, int] = {}
     required: dict[str, int] = {}
@@ -134,8 +132,6 @@ def hourly_mean_series(
     for pollutant, hour, value in readings:
         buckets.setdefault(pollutant, {}).setdefault(hour, []).append(value)
     return {
-        pollutant: {
-            hour: sum(values) / len(values) for hour, values in hourly.items()
-        }
+        pollutant: {hour: sum(values) / len(values) for hour, values in hourly.items()}
         for pollutant, hourly in buckets.items()
     }

@@ -82,9 +82,7 @@ def sample_along(
     if not samples:
         # A route shorter than one spacing still has to produce a segment.
         samples.append(
-            SampledPoint(
-                coordinate=coords[0], cell=grid.cell_for(coords[0], resolution)
-            )
+            SampledPoint(coordinate=coords[0], cell=grid.cell_for(coords[0], resolution))
         )
     return samples
 

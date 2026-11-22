@@ -156,7 +156,6 @@ def canyon_wind_factor(
     return float(min(max(factor, 0.4), 2.0))
 
 
-
 def road_factor(params: StreetModelParams, road_class: RoadClass) -> float:
     return params.road_factors.get(road_class, 1.00)
 

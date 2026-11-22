@@ -18,9 +18,7 @@ XKDR_SIGNUP_URL = "https://airquality.xkdr.org/signup"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     xkdr_api_key: str = Field(default="", description="XKDR India Air Quality API key")
     xkdr_base_url: str = "https://airquality.xkdr.org"
@@ -54,9 +52,7 @@ class Settings(BaseSettings):
 
     # ── Spatial Interpolation & IDW (Sprint 3 - A5) ──
     # UNVERIFIED ASSUMPTION (Rule 5): Distance weighting power parameter for urban dispersion
-    idw_power: float = Field(
-        default=2.0, description="Inverse distance weighting power parameter"
-    )
+    idw_power: float = Field(default=2.0, description="Inverse distance weighting power parameter")
     # UNVERIFIED ASSUMPTION (Rule 5): Maximum radius in km to consider ground monitors
     idw_max_distance_km: float = Field(
         default=25.0, description="Maximum radius in km for IDW station interpolation"
@@ -225,8 +221,7 @@ class Settings(BaseSettings):
         if self.grid_provider == "open_meteo":
             return None
         raise RuntimeError(
-            f"unknown GRID_PROVIDER {self.grid_provider!r}; "
-            "expected 'open_meteo' or 'xkdr'"
+            f"unknown GRID_PROVIDER {self.grid_provider!r}; expected 'open_meteo' or 'xkdr'"
         )
 
 

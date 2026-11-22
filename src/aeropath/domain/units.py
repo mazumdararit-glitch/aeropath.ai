@@ -79,8 +79,7 @@ def conversion_factor(pollutant: str, unit: str) -> float:
         if key.lower() == lowered:
             return factor
     raise UnknownUnitError(
-        f"unknown unit {unit!r} for {pollutant}; expected one of "
-        f"{sorted(set(table))}"
+        f"unknown unit {unit!r} for {pollutant}; expected one of {sorted(set(table))}"
     )
 
 
@@ -89,9 +88,7 @@ def to_canonical(pollutant: str, value: float, unit: str) -> float:
     return value * conversion_factor(pollutant, unit)
 
 
-def normalise(
-    concentrations: dict[str, float], units: dict[str, str]
-) -> dict[str, float]:
+def normalise(concentrations: dict[str, float], units: dict[str, str]) -> dict[str, float]:
     """Convert a batch, skipping pollutants whose unit is absent or unknown.
 
     Skipping rather than raising at the batch level keeps one odd pollutant from

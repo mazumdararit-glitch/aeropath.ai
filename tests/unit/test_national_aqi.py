@@ -96,22 +96,16 @@ class TestRollingAqi:
         series = _all_pollutants(48)
         # Five hours ending at the evaluation time: inside the window, but only
         # 5/24 = 21% covered, which is below the default 75%.
-        series["PM2.5"] = {
-            BASE + timedelta(hours=h): 60.0 for h in range(43, 48)
-        }
+        series["PM2.5"] = {BASE + timedelta(hours=h): 60.0 for h in range(43, 48)}
 
         result = rolling_aqi(series, at=BASE + timedelta(hours=47))
         assert all(s.pollutant != "PM2.5" for s in result.sub_indices)
 
     def test_min_coverage_is_configurable(self) -> None:
         series = _all_pollutants(48)
-        series["PM2.5"] = {
-            BASE + timedelta(hours=h): 60.0 for h in range(43, 48)
-        }
+        series["PM2.5"] = {BASE + timedelta(hours=h): 60.0 for h in range(43, 48)}
 
-        result = rolling_aqi(
-            series, at=BASE + timedelta(hours=47), min_coverage=0.2
-        )
+        result = rolling_aqi(series, at=BASE + timedelta(hours=47), min_coverage=0.2)
         assert any(s.pollutant == "PM2.5" for s in result.sub_indices)
 
 

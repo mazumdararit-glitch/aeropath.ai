@@ -98,9 +98,7 @@ async def test_waqi_client_parses_bounding_box_feed() -> None:
     respx.get(waqi_url).mock(return_value=httpx.Response(200, json=mock_payload))
 
     client = WaqiClient(token="test_token")
-    stations = await client.fetch_in_bbox(
-        min_lat=28.5, min_lng=77.1, max_lat=28.8, max_lng=77.4
-    )
+    stations = await client.fetch_in_bbox(min_lat=28.5, min_lng=77.1, max_lat=28.8, max_lng=77.4)
     assert len(stations) == 1
     assert stations[0].station_id == "waqi_1001"
     assert stations[0].attribution != ""
@@ -109,9 +107,7 @@ async def test_waqi_client_parses_bounding_box_feed() -> None:
 @respx.mock
 async def test_openaq_client_handles_missing_key_gracefully() -> None:
     client = OpenAQClient(api_key="")
-    stations = await client.fetch_in_bbox(
-        min_lat=28.5, min_lng=77.1, max_lat=28.8, max_lng=77.4
-    )
+    stations = await client.fetch_in_bbox(min_lat=28.5, min_lng=77.1, max_lat=28.8, max_lng=77.4)
     assert stations == []
 
 

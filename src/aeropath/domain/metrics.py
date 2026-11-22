@@ -62,11 +62,10 @@ class CategoryAgreement:
     @property
     def worst_confusions(self) -> list[tuple[AQCategory, AQCategory, int]]:
         """Off-diagonal cells, worst first. A two-band miss is a trust failure."""
+
         def distance(pair: tuple[AQCategory, AQCategory]) -> int:
             predicted, actual = pair
-            return abs(
-                categories.severity_index(predicted) - categories.severity_index(actual)
-            )
+            return abs(categories.severity_index(predicted) - categories.severity_index(actual))
 
         off = [
             (predicted, actual, count)
@@ -204,7 +203,6 @@ class GateResult:
             )
         if not self.improvement_pass:
             failures.append(
-                f"MAPE improvement {self.improvement:+.1f}% "
-                f"< {self.min_relative_improvement:.0f}%"
+                f"MAPE improvement {self.improvement:+.1f}% < {self.min_relative_improvement:.0f}%"
             )
         return "FAIL: " + "; ".join(failures)

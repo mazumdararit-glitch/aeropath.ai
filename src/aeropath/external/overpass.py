@@ -134,15 +134,14 @@ def fetch(
     attempts: int = 2,
 ) -> tuple[list[NearbyWay], list[NearbyArea], list[NearbyArea]]:
     """Query Overpass with in-memory caching across mirrors."""
-    cache_key = "|".join(
-        f"{sid}:{round(c.lat, 3)},{round(c.lng, 3)}" for sid, c in sorted(points.items())
-    ) + f":{road_radius_m}:{feature_radius_m}"
+    cache_key = (
+        "|".join(f"{sid}:{round(c.lat, 3)},{round(c.lng, 3)}" for sid, c in sorted(points.items()))
+        + f":{road_radius_m}:{feature_radius_m}"
+    )
     if cache_key in _OVERPASS_CACHE:
         return _OVERPASS_CACHE[cache_key]
 
-    query = build_query(
-        points, road_radius_m=road_radius_m, feature_radius_m=feature_radius_m
-    )
+    query = build_query(points, road_radius_m=road_radius_m, feature_radius_m=feature_radius_m)
     last_error: Exception | None = None
 
     for url in OVERPASS_URLS[:attempts]:

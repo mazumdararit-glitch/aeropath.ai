@@ -36,9 +36,7 @@ from aeropath.services.scoring import street_model
 logger = logging.getLogger(__name__)
 
 
-def create_app(
-    settings: Settings | None = None, service: PlanService | None = None
-) -> FastAPI:
+def create_app(settings: Settings | None = None, service: PlanService | None = None) -> FastAPI:
     """Build the app.
 
     ``service`` exists so tests can inject a stub without reaching into FastAPI's
@@ -69,9 +67,7 @@ def create_app(
         # Selecting the provider is configuration; failing here rather than
         # per-request keeps that error at startup where an operator sees it.
         provider = build_provider(resolved)
-        router = OsrmRouter(
-            resolved.osrm_base_url, timeout_s=resolved.osrm_timeout_s
-        )
+        router = OsrmRouter(resolved.osrm_base_url, timeout_s=resolved.osrm_timeout_s)
         if resolved.enable_rules_v2 or resolved.street_model_version == "rules_v2":
             street_params = street_model.RULES_V2_MODEL
         elif resolved.street_model_version == "rules_v1":
@@ -115,6 +111,7 @@ def create_app(
     async def geocode(q: str) -> list[dict[str, object]]:
         """Search addresses and landmarks via Nominatim with proper headers."""
         import httpx
+
         url = "https://nominatim.openstreetmap.org/search"
         params: dict[str, str | int] = {
             "format": "json",
@@ -157,23 +154,27 @@ def create_app(
         provider = getattr(svc, "_provider", None)
         if provider and hasattr(provider, "get_health_status"):
             chain_health: dict[str, object] = provider.get_health_status()
-            base_resp.update({
-                "active_provider": chain_health.get("active_provider", resolved.grid_provider),
-                "fallback_chain": chain_health.get("fallback_chain", [resolved.grid_provider]),
-                "data_age": chain_health.get("data_age"),
-                "last_error": chain_health.get("last_error"),
-                "last_error_at": chain_health.get("last_error_at"),
-                "request_budget": chain_health.get("request_budget"),
-            })
+            base_resp.update(
+                {
+                    "active_provider": chain_health.get("active_provider", resolved.grid_provider),
+                    "fallback_chain": chain_health.get("fallback_chain", [resolved.grid_provider]),
+                    "data_age": chain_health.get("data_age"),
+                    "last_error": chain_health.get("last_error"),
+                    "last_error_at": chain_health.get("last_error_at"),
+                    "request_budget": chain_health.get("request_budget"),
+                }
+            )
         else:
-            base_resp.update({
-                "active_provider": resolved.grid_provider,
-                "fallback_chain": [resolved.grid_provider],
-                "data_age": None,
-                "last_error": None,
-                "last_error_at": None,
-                "request_budget": None,
-            })
+            base_resp.update(
+                {
+                    "active_provider": resolved.grid_provider,
+                    "fallback_chain": [resolved.grid_provider],
+                    "data_age": None,
+                    "last_error": None,
+                    "last_error_at": None,
+                    "request_budget": None,
+                }
+            )
         return base_resp
 
     @app.get("/v1/coverage")

@@ -140,9 +140,7 @@ class XkdrStationProvider:
             for parameter, value in pollutants.items():
                 totals.setdefault(parameter, {})
                 counts.setdefault(parameter, {})
-                totals[parameter][station_id] = (
-                    totals[parameter].get(station_id, 0.0) + value
-                )
+                totals[parameter][station_id] = totals[parameter].get(station_id, 0.0) + value
                 counts[parameter][station_id] = counts[parameter].get(station_id, 0) + 1
 
         series: dict[str, dict[str, float]] = {
@@ -187,9 +185,7 @@ class XkdrStationProvider:
         """The day the last request actually served, if one has run."""
         return self._resolved_day
 
-    async def _resolve_day(
-        self, at: datetime | None, *, city: str | None = None
-    ) -> date | None:
+    async def _resolve_day(self, at: datetime | None, *, city: str | None = None) -> date | None:
         """Which day to actually query, for a given city.
 
         An explicit ``at`` is honoured but still validated against coverage, so a
@@ -231,9 +227,7 @@ class XkdrStationProvider:
         """Stations near the query, from the city filter or a nationwide list."""
         if self._city:
             return [
-                s
-                for s in await self._client.stations(city=self._city)
-                if s.source == "cpcb_caaqm"
+                s for s in await self._client.stations(city=self._city) if s.source == "cpcb_caaqm"
             ]
         stations = await self._client.stations()
         return [s for s in stations if s.source == "cpcb_caaqm"]
@@ -254,11 +248,7 @@ class XkdrStationProvider:
         if self._inferred_city is not None:
             return self._inferred_city
 
-        stations = [
-            s
-            for s in await self._client.stations()
-            if s.city and s.source == "cpcb_caaqm"
-        ]
+        stations = [s for s in await self._client.stations() if s.city and s.source == "cpcb_caaqm"]
         if not stations:
             return None
 

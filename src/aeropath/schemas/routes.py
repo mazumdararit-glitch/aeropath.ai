@@ -45,9 +45,7 @@ class RouteModel(BaseModel):
             "national AQI, and must be labelled as such in any UI."
         )
     )
-    pollutants_used: int = Field(
-        description="How many pollutants the index was computed from."
-    )
+    pollutants_used: int = Field(description="How many pollutants the index was computed from.")
     is_estimated: bool = Field(
         default=False,
         description="True if rolling history was insufficient and fallback estimates were used.",

@@ -75,4 +75,3 @@ class AlertConfig(Base, TimestampMixin):
 
 Index("idx_saved_places_user", SavedPlace.user_id)
 Index("idx_alert_configs_user_active", AlertConfig.user_id, AlertConfig.is_active)
-
