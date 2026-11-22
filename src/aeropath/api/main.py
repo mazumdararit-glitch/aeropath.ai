@@ -142,13 +142,38 @@ def create_app(
 
     @app.get("/healthz")
     @app.get("/health")
-    async def healthz() -> dict[str, object]:
-        return {
+    @app.get("/v1/providers/health")
+    async def health_report(
+        svc: PlanService = Depends(get_service),  # noqa: B008
+    ) -> dict[str, object]:
+        """Diagnostic health report for active air quality providers and fallback chain."""
+        base_resp: dict[str, object] = {
             "status": "ok",
             "provider": resolved.grid_provider,
             "xkdr_configured": bool(resolved.xkdr_api_key),
             "router": resolved.osrm_base_url,
         }
+        provider = getattr(svc, "_provider", None)
+        if provider and hasattr(provider, "get_health_status"):
+            chain_health: dict[str, object] = provider.get_health_status()
+            base_resp.update({
+                "active_provider": chain_health.get("active_provider", resolved.grid_provider),
+                "fallback_chain": chain_health.get("fallback_chain", [resolved.grid_provider]),
+                "data_age": chain_health.get("data_age"),
+                "last_error": chain_health.get("last_error"),
+                "last_error_at": chain_health.get("last_error_at"),
+                "request_budget": chain_health.get("request_budget"),
+            })
+        else:
+            base_resp.update({
+                "active_provider": resolved.grid_provider,
+                "fallback_chain": [resolved.grid_provider],
+                "data_age": None,
+                "last_error": None,
+                "last_error_at": None,
+                "request_budget": None,
+            })
+        return base_resp
 
     @app.get("/v1/coverage")
     async def coverage() -> dict[str, object]:

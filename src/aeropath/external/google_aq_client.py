@@ -24,6 +24,8 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from aeropath.domain.cpcb_aqi import canonical_pollutant
+from aeropath.external.provider import PointReading
 from aeropath.schemas.common import Coordinate
 
 logger = logging.getLogger(__name__)
@@ -309,3 +311,49 @@ def _pick_ind_cpcb(entry: dict[str, object]) -> dict[str, object] | None:
         if isinstance(index, dict) and index.get("code") == INDEX_CODE:
             return index
     return None
+
+
+class GoogleAirQualityProvider:
+    """Adapts GoogleAirQualityClient to the GridProvider protocol for the provider chain."""
+
+    name: str = "google_air_quality"
+
+    def __init__(
+        self, api_key: str, *, client: GoogleAirQualityClient | None = None
+    ) -> None:
+        self._api_key = api_key
+        self._client = client or GoogleAirQualityClient(api_key=api_key)
+
+    async def __aenter__(self) -> GoogleAirQualityProvider:
+        await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        await self._client.__aexit__(*exc_info)
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
+    async def concentrations_at(
+        self, points: list[Coordinate], *, at: datetime | None = None
+    ) -> list[PointReading]:
+        readings: list[PointReading] = []
+        for p in points:
+            cell_key = f"{round(p.lat, 3)}:{round(p.lng, 3)}"
+            hourly_cell = await self._client.fetch_current(p, cell=cell_key)
+            canonical_concs: dict[str, float] = {}
+            for code, val in hourly_cell.pollutants.items():
+                canon = canonical_pollutant(code)
+                if canon:
+                    canonical_concs[canon] = val
+            readings.append(
+                PointReading(
+                    coordinate=p,
+                    concentrations=canonical_concs,
+                    source=self.name,
+                    nearest_station_km=0.5,
+                    observed_at=hourly_cell.hour,
+                )
+            )
+        return readings
+

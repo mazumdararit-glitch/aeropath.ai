@@ -40,6 +40,17 @@ class Settings(BaseSettings):
     google_aq_key: str = Field(
         default="", description="Google Air Quality API key for 500m resolution"
     )
+    # ── Provider Chain & Cost Protection (Sprint 3 - A4) ──
+    enable_provider_chain: bool = Field(
+        default=True, description="Enable automatic fallback provider chain"
+    )
+    google_aq_request_budget: int = Field(
+        default=1000, description="Max Google AQ requests per budget cycle"
+    )
+    # UNVERIFIED ASSUMPTION: 30-minute in-memory cache TTL for spatial grid readings
+    provider_cache_ttl_s: int = Field(
+        default=1800, description="Cache TTL in seconds for grid readings (unverified assumption)"
+    )
 
     # Street dispersion model: "rules_v1" (applies road type and rush hour factors)
     # or "identity_v1" (unadjusted base grid)
