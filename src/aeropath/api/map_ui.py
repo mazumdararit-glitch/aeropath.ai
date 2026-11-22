@@ -1729,20 +1729,37 @@ HTML_PAGE = r"""<!DOCTYPE html>
         tabsRow.style.display = 'flex';
         tabsRow.innerHTML = currentRoutes.map((r, i) => {
           const isAct = i === activeRouteIndex ? 'active' : '';
-          const tag = i === 0 ? 'Option A (Cleanest)' : `Option ${String.fromCharCode(65 + i)}`;
+          const label = r.route_label ? r.route_label : (i === 0 ? 'Max Clean Air' : `Option ${String.fromCharCode(65 + i)}`);
           const km = (r.distance_m / 1000).toFixed(1);
-          const doseStr = Math.round(r.dose).toLocaleString();
+          const mins = Math.round(r.duration_s / 60);
+          const catName = (r.category || 'MODERATE').replace('_', ' ').toUpperCase();
+          const catColor = AQI_COLORS[r.category] || '#10b981';
+          const conf = (r.confidence || 'HIGH').toUpperCase();
+          const doseSavings = r.relative_dose_pct && r.relative_dose_pct < 0 
+            ? `${Math.abs(r.relative_dose_pct)}% Less Dose` 
+            : (r.route_label === 'Direct' ? 'Fastest' : 'Baseline');
+          const dataAge = currentDataDate ? `Data Age: ${currentDataDate}` : 'Data Age: Live Feed';
+
           return `
             <div class="route-tab-card ${isAct}" 
                  onclick="switchActiveRoute(${i})"
                  onmouseenter="highlightRoutePolyline(${i})"
                  onmouseleave="resetRoutePolylines()">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="route-tab-label">${tag}</span>
-                ${i === 0 ? '<span style="font-size:0.65rem; background:rgba(16,185,129,0.18); color:#10b981; padding:1px 6px; border-radius:4px; font-weight:700;">LOWEST DOSE</span>' : ''}
+                <span class="route-tab-label">${label}</span>
+                <span class="dose-savings-badge" style="font-size:0.65rem; background:rgba(16,185,129,0.18); color:#10b981; padding:1px 6px; border-radius:4px; font-weight:700;">${doseSavings}</span>
               </div>
-              <span class="route-tab-metric">${r.mean_aqi.toFixed(1)} <span style="font-size:0.75rem; font-weight:500; color:var(--text-muted);">AQI</span></span>
-              <span style="font-size:0.72rem; color:var(--text-muted); font-weight:500;">${km} km &bull; Dose: ${doseStr}</span>
+              <div style="display:flex; align-items:baseline; gap:6px;">
+                <span class="route-tab-metric">${r.mean_aqi.toFixed(1)} <span style="font-size:0.75rem; font-weight:500; color:var(--text-muted);">AQI</span></span>
+                <span style="font-size:0.68rem; font-weight:700; color:${catColor}; text-transform:uppercase;">${catName}</span>
+              </div>
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:500; display:flex; justify-content:space-between;">
+                <span>${mins} min &bull; ${km} km</span>
+                <span style="font-size:0.65rem; color:var(--text-muted); font-weight:600;">Conf: ${conf}</span>
+              </div>
+              <div style="font-size:0.65rem; color:var(--text-muted); opacity:0.8; margin-top:2px;">
+                ${dataAge}
+              </div>
             </div>
           `;
         }).join('');
