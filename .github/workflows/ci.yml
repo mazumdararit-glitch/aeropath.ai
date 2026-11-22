@@ -46,6 +46,16 @@ jobs:
         run: mypy src
 
       - name: Run Pytest Suite
-        run: python -m pytest tests -v
+        run: |
+          python -m pytest tests -v --tb=short 2>&1 | tee pytest_output.txt
+          exit ${PIPESTATUS[0]}
         env:
           PYTHONPATH: src
+
+      - name: Display Pytest Failure Summary
+        if: always()
+        run: |
+          echo "### Pytest Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          tail -n 100 pytest_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
