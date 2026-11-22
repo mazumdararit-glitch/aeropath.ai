@@ -16,6 +16,7 @@ dependencies = [
     "celery[redis]>=5.4",
     "h3>=4.1",
     "shapely>=2.0",
+    "pyproj>=3.6",
     "numpy>=1.26",
     "httpx>=0.28",
     "anthropic>=0.40",

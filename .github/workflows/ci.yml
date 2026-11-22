@@ -46,22 +46,6 @@ jobs:
         run: mypy src
 
       - name: Run Pytest Suite
-        run: |
-          python -m pytest tests -v --tb=short 2>&1 | tee pytest_output.txt
-          exit ${PIPESTATUS[0]}
+        run: python -m pytest tests -v
         env:
           PYTHONPATH: src
-
-      - name: Annotate Pytest Failure
-        if: failure()
-        run: |
-          while IFS= read -r line; do
-            echo "::error title=Pytest Failure::$line"
-          done < <(grep -E 'FAILED|ERROR|ModuleNotFoundError|AssertionError|ImportError' pytest_output.txt | head -n 30)
-
-      - name: Upload Pytest Log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-log
-          path: pytest_output.txt
