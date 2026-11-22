@@ -56,7 +56,7 @@ from aeropath.domain.interpolation import (  # noqa: E402
     haversine_km,
     interpolate,
 )
-from aeropath.domain.interpolation import (
+from aeropath.domain.interpolation import (  # noqa: E402
     inverse_distance_weights as idw_weights,
 )
 from aeropath.domain.metrics import (  # noqa: E402
