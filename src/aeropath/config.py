@@ -63,6 +63,19 @@ class Settings(BaseSettings):
         description="CPCB guideline: min valid fraction for 8-h averages (6 of 8h).",
     )
 
+    # ── Ground-Station Provider & Bias Correction (Sprint 1 - A2) ──
+    waqi_token: str = Field(default="", description="WAQI token for live ground station feed")
+    openaq_api_key: str = Field(default="", description="OpenAQ v3 API key for station feed")
+    max_station_reading_age_h: float = Field(
+        default=3.0, description="Max reading age for live ground stations in hours."
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Shrinkage factor applied to station-model residuals
+    # to correct satellite model bias without overfitting to isolated station noise.
+    bias_correction_shrinkage: float = Field(
+        default=0.75,
+        description="Unverified assumption: shrinkage applied to station-model residual.",
+    )
+
     # Routing backend
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_timeout_s: float = 15.0
