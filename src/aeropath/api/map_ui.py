@@ -1362,6 +1362,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
     let currentRoutes = [];
     let currentBestWindows = [];
     let currentDataNote = '';
+    let currentDataDate = '';
     let activeRouteIndex = 0;
     let clickTarget = 'orig'; // 'orig', 'dest', or 'loop'
     let isPanelCollapsed = false;
@@ -1660,6 +1661,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
         currentRoutes = data.routes || [];
         currentBestWindows = data.best_windows || [];
         currentDataNote = data.data_note || '';
+        currentDataDate = data.data_date || '';
         activeRouteIndex = 0;
         renderRoutesOutput(true);
       } catch (err) {
@@ -1706,6 +1708,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
         currentRoutes = routes || [];
         currentBestWindows = [];
         currentDataNote = 'Circular loop optimized for low particulate exposure.';
+        currentDataDate = '';
         activeRouteIndex = 0;
         renderRoutesOutput(true);
       } catch (err) {
