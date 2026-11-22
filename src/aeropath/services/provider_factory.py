@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 from aeropath.config import Settings
-from aeropath.external.bias_corrected_provider import StationCorrectedProvider
 from aeropath.external.google_aq_client import GoogleAirQualityProvider
+from aeropath.external.idw_provider import StationIDWProvider
 from aeropath.external.open_meteo_provider import OpenMeteoProvider
 from aeropath.external.provider import GridProvider
 from aeropath.external.station_providers import (
@@ -71,13 +71,16 @@ def build_provider(settings: Settings) -> GridProvider:
 
         station_loader = _load_openaq
 
-    station_corrected = StationCorrectedProvider(
+    station_spatial = StationIDWProvider(
         OpenMeteoProvider(),
         stations_loader=station_loader,
+        min_stations=settings.idw_min_stations,
+        power=settings.idw_power,
+        max_distance_km=settings.idw_max_distance_km,
         shrinkage_factor=settings.bias_correction_shrinkage,
         max_reading_age_h=settings.max_station_reading_age_h,
     )
-    chain.append(station_corrected)
+    chain.append(station_spatial)
 
     # 3. Plain Open-Meteo
     chain.append(OpenMeteoProvider())

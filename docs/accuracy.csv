@@ -1,4 +1,4 @@
-city,pollutant,samples,model_mae,corrected_mae,mae_reduction_pct,model_rmse,corrected_rmse,model_bias,corrected_bias,model_category_agreement_pct,corrected_category_agreement_pct
-Kolkata,PM2.5,12,80.5,20.12,75.0,80.9,21.64,-80.5,-20.12,100.0,100.0
-Kolkata,PM10,8,126.0,31.5,75.0,126.89,35.59,-126.0,-31.5,100.0,100.0
-Delhi,PM2.5,9,177.89,44.47,75.0,178.54,47.68,-177.89,-44.47,100.0,100.0
+city,pollutant,samples,model_mae,corrected_mae,idw_mae,mae_reduction_pct,model_rmse,corrected_rmse,idw_rmse,model_bias,corrected_bias,idw_bias,model_category_agreement_pct,corrected_category_agreement_pct,idw_category_agreement_pct
+Kolkata,PM2.5,12,80.5,20.12,7.87,90.2,80.9,21.64,9.77,-80.5,-20.12,-2.12,100.0,100.0,100.0
+Kolkata,PM10,8,126.0,31.5,16.08,87.2,126.89,35.59,19.96,-126.0,-31.5,-4.23,100.0,100.0,100.0
+Delhi,PM2.5,9,177.89,44.47,15.45,91.3,178.54,47.68,18.39,-177.89,-44.47,-2.23,100.0,100.0,100.0

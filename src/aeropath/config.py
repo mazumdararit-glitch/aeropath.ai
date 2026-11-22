@@ -52,6 +52,19 @@ class Settings(BaseSettings):
         default=1800, description="Cache TTL in seconds for grid readings (unverified assumption)"
     )
 
+    # ── Spatial Interpolation & IDW (Sprint 3 - A5) ──
+    # UNVERIFIED ASSUMPTION (Rule 5): Distance weighting power parameter for urban dispersion
+    idw_power: float = Field(
+        default=2.0, description="Inverse distance weighting power parameter"
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Maximum radius in km to consider ground monitors
+    idw_max_distance_km: float = Field(
+        default=25.0, description="Maximum radius in km for IDW station interpolation"
+    )
+    idw_min_stations: int = Field(
+        default=3, description="Minimum valid stations required to apply IDW before fallback"
+    )
+
     # Street dispersion model: "rules_v1" (applies road type and rush hour factors)
     # or "identity_v1" (unadjusted base grid)
     street_model_version: str = "rules_v1"

@@ -22,9 +22,11 @@ def test_leave_one_out_offline_evaluation() -> None:
     pm25_metrics = kolkata_res["pollutants"]["PM2.5"]
     assert "model_only" in pm25_metrics
     assert "bias_corrected" in pm25_metrics
+    assert "idw" in pm25_metrics
 
-    # Bias correction should reduce MAE / RMSE compared to raw coarse model
+    # Bias correction and IDW both reduce MAE / RMSE compared to raw coarse model
     assert pm25_metrics["bias_corrected"]["mae"] < pm25_metrics["model_only"]["mae"]
+    assert pm25_metrics["idw"]["mae"] <= pm25_metrics["bias_corrected"]["mae"]
 
 
 def test_markdown_and_csv_export(tmp_path: Path) -> None:
