@@ -78,6 +78,7 @@ class PlannedRoute:
     # sub-index, not a national AQI, and clients must say so.
     is_national_aqi: bool = True
     pollutants_used: int = 0
+    is_estimated: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,6 +251,7 @@ class PlanService:
                         (len(reading.concentrations) for reading in readings),
                         default=0,
                     ),
+                    is_estimated=any(reading.is_estimated for reading in readings),
                 )
             )
 

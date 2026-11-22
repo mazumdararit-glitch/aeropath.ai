@@ -28,3 +28,11 @@ class AirQualityPointResponse(BaseModel):
     is_national_aqi: bool
     recorded_at: datetime
     source: str
+    averaging_period: dict[str, str] = Field(
+        default_factory=dict,
+        description="Averaging period per pollutant (e.g. '24h', '8h', '1h-damped').",
+    )
+    is_estimated: bool = Field(
+        default=False,
+        description="True if rolling history was insufficient and fallback estimates were used.",
+    )

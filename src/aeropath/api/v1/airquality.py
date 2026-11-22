@@ -57,6 +57,11 @@ async def get_current_airquality(
     pollutants_map = {sub.pollutant: sub.sub_index for sub in res.sub_indices}
     advisory = categories.advisory(res.category, sensitivity)
 
+    averaging_map = {
+        pollutant: str(hrs)
+        for pollutant, hrs in (reading.averaging_hours or {}).items()
+    }
+
     return AirQualityPointResponse(
         coordinate=coord,
         aqi=res.aqi,
@@ -68,4 +73,6 @@ async def get_current_airquality(
         is_national_aqi=res.is_national,
         recorded_at=reading.observed_at or now,
         source=provider.name,
+        averaging_period=averaging_map,
+        is_estimated=reading.is_estimated,
     )

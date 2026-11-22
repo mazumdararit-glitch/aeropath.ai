@@ -45,6 +45,24 @@ class Settings(BaseSettings):
     # or "identity_v1" (unadjusted base grid)
     street_model_version: str = "rules_v1"
 
+    # ── Pollutant Averaging & Damping Constants (Sprint 1 - A1) ──
+    # UNVERIFIED ASSUMPTION (Rule 5): Scaling factor to estimate 8-h rolling mean ozone
+    # from 1-h peak solar snapshot when hourly history is absent.
+    ozone_damping_factor: float = Field(
+        default=0.65,
+        description="Unverified assumption: factor scaling 1h ozone to 8h rolling mean.",
+    )
+    # CPCB completeness: min 16 of 24 hours (66.7%) for 24-h averaging (PM2.5, PM10, NO2, SO2)
+    min_completeness_24h: float = Field(
+        default=16 / 24,
+        description="CPCB guideline: min valid fraction for 24-h averages (16 of 24h).",
+    )
+    # CPCB completeness: min 6 of 8 hours (75%) for 8-h rolling averages (Ozone, CO)
+    min_completeness_8h: float = Field(
+        default=6 / 8,
+        description="CPCB guideline: min valid fraction for 8-h averages (6 of 8h).",
+    )
+
     # Routing backend
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_timeout_s: float = 15.0

@@ -73,10 +73,16 @@ class OpenMeteoProvider:
         *,
         timeout_s: float = 30.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        ozone_damping_factor: float = 0.65,
+        min_completeness_24h: float = 16 / 24,
+        min_completeness_8h: float = 6 / 8,
     ) -> None:
         self._client = httpx.AsyncClient(
             base_url=BASE_URL, timeout=timeout_s, transport=transport
         )
+        self._ozone_damping_factor = ozone_damping_factor
+        self._min_completeness_24h = min_completeness_24h
+        self._min_completeness_8h = min_completeness_8h
         # Last grid offset seen, so a caller can report model resolution.
         self.last_grid: CamsGridInfo | None = None
 
@@ -112,6 +118,9 @@ class OpenMeteoProvider:
             "latitude": latitudes,
             "longitude": longitudes,
             "current": ",".join(VARIABLES),
+            "hourly": ",".join(VARIABLES),
+            "past_hours": "24",
+            "forecast_hours": "1",
             "timezone": "UTC",
         }
 
@@ -143,11 +152,51 @@ class OpenMeteoProvider:
                 continue
 
             current = entry.get("current") or {}
+            hourly = entry.get("hourly") or {}
             raw: dict[str, float] = {}
+            is_estimated = False
+            averaging_hours: dict[str, int | str] = {}
+
+            has_hourly = bool(hourly and any(hourly.get(var) for var in VARIABLES))
+            if not has_hourly:
+                is_estimated = True
+
             for variable, pollutant in VARIABLES.items():
-                value = current.get(variable)
-                if value is not None:
-                    raw[pollutant] = float(value)
+                series_vals = hourly.get(variable) if has_hourly else None
+                # Averaging periods: 8h for Ozone/CO, 24h for PM2.5, PM10, NO2, SO2
+                if pollutant in ("Ozone", "CO"):
+                    req_window = 8
+                    min_valid = max(1, round(8 * self._min_completeness_8h))
+                else:
+                    req_window = 24
+                    min_valid = max(1, round(24 * self._min_completeness_24h))
+
+                mean_val: float | None = None
+                if series_vals and isinstance(series_vals, list) and len(series_vals) > 0:
+                    window = (
+                        series_vals[-req_window:]
+                        if len(series_vals) >= req_window
+                        else series_vals
+                    )
+                    valid = [float(v) for v in window if v is not None]
+                    if len(valid) >= min_valid:
+                        mean_val = sum(valid) / len(valid)
+                        averaging_hours[pollutant] = req_window
+
+                if mean_val is not None:
+                    raw[pollutant] = mean_val
+                else:
+                    # Incomplete or missing history -> fallback to current 1-hour snapshot
+                    curr_val = current.get(variable)
+                    if curr_val is not None:
+                        val_f = float(curr_val)
+                        if pollutant == "Ozone":
+                            raw[pollutant] = val_f * self._ozone_damping_factor
+                            averaging_hours[pollutant] = "1h-damped"
+                        else:
+                            raw[pollutant] = val_f
+                            averaging_hours[pollutant] = "1h-snapshot"
+                        is_estimated = True
 
             concentrations = normalise(raw, UNITS)
 
@@ -169,6 +218,8 @@ class OpenMeteoProvider:
                     # meaningful: a 45 km cell is low confidence for a street.
                     nearest_station_km=offset,
                     observed_at=_parse_time(current.get("time")),
+                    is_estimated=is_estimated,
+                    averaging_hours=averaging_hours,
                 )
             )
         return out
