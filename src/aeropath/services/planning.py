@@ -34,6 +34,11 @@ from aeropath.schemas.common import (
     Sensitivity,
 )
 from aeropath.services import routing
+from aeropath.services.candidate_router import (
+    CandidateRoute,
+    generate_corridor_waypoints,
+    label_three_routes,
+)
 from aeropath.services.scoring import categories, engine, street_model
 
 logger = logging.getLogger(__name__)
@@ -80,6 +85,7 @@ class PlannedRoute:
     pollutants_used: int = 0
     is_estimated: bool = False
     relative_dose_pct: float = 0.0
+    route_label: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,6 +216,17 @@ class PlanService:
             alternatives=request.alternate_routes,
         )
 
+        if hasattr(self._router, "route_waypoints"):
+            try:
+                for wp in generate_corridor_waypoints(request.origin, request.destination):
+                    detours = await self._router.route_waypoints(
+                        [request.origin, wp, request.destination],
+                        profile=routing.activity_profile(request.activity),
+                    )
+                    geometries.extend(detours)
+            except Exception as exc:
+                logger.debug("could not fetch corridor detour candidates: %s", exc)
+
         planned: list[PlannedRoute] = []
         sampled = 0
         with_concentrations = 0
@@ -267,6 +284,25 @@ class PlanService:
                 "window."
             )
 
+        # Identify 3 labeled routes (Direct, Max Clean Air, Balanced)
+        candidate_items = [
+            CandidateRoute(
+                distance_m=r.distance_m,
+                duration_s=r.duration_s,
+                dose=r.score.dose,
+                mean_aqi=r.score.mean_aqi,
+                extra=id(r),
+            )
+            for r in planned
+        ]
+        labeled_routes = label_three_routes(
+            candidate_items,
+            max_detour_pct=20.0,
+            balanced_min_reduction_pct=15.0,
+            balanced_max_dist_pct=10.0,
+        )
+        label_by_id = {c.extra: c.route_label for c in labeled_routes if c.extra is not None}
+
         fastest = min(planned, key=lambda r: r.duration_s)
         fastest_dose = fastest.score.dose
         planned_with_rel: list[PlannedRoute] = []
@@ -288,6 +324,7 @@ class PlanService:
                     pollutants_used=r.pollutants_used,
                     is_estimated=r.is_estimated,
                     relative_dose_pct=rel,
+                    route_label=label_by_id.get(id(r), ""),
                 )
             )
 

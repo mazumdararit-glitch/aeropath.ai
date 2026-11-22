@@ -235,6 +235,7 @@ def create_app(
                     pollutants_used=route.pollutants_used,
                     is_estimated=route.is_estimated,
                     relative_dose_pct=route.relative_dose_pct,
+                    route_label=route.route_label,
                 )
                 for route in result.routes
             ],
