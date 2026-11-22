@@ -234,6 +234,7 @@ def create_app(
                     is_national_aqi=route.is_national_aqi,
                     pollutants_used=route.pollutants_used,
                     is_estimated=route.is_estimated,
+                    relative_dose_pct=route.relative_dose_pct,
                 )
                 for route in result.routes
             ],

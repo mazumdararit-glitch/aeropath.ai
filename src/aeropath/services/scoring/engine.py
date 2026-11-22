@@ -39,6 +39,28 @@ ACTIVITY_FACTORS: dict[Activity, float] = {
     Activity.RUN: 3.0,
 }
 
+# Physical minute ventilation rates (L/min) and typical speeds (m/s)
+DEFAULT_VENTILATION_L_MIN: dict[Activity, float] = {
+    Activity.WALK: 15.0,
+    Activity.RUN: 45.0,
+}
+
+DEFAULT_SPEEDS_MPS: dict[Activity, float] = {
+    Activity.WALK: 1.34,
+    Activity.RUN: 2.68,
+}
+
+
+def compute_physical_dose(
+    pm25_ug_m3: float,
+    duration_min: float,
+    ventilation_l_min: float,
+) -> float:
+    """Inhaled PM2.5 mass (µg) = PM2.5 (µg/m³) * ventilation (m³/min) * duration (min)."""
+    ventilation_m3_min = ventilation_l_min / 1000.0
+    return max(0.0, pm25_ug_m3 * ventilation_m3_min * duration_min)
+
+
 # Two routes within this relative dose are considered equivalent, and the
 # shorter one wins. Without a tolerance the ranking is decided by float noise
 # across routes that are, to a user, equally clean.
@@ -55,6 +77,8 @@ class SegmentInput:
     road_class: RoadClass
     green_distance_m: float | None = None
     water_distance_m: float | None = None
+    pm25_concentration: float | None = None
+    duration_s: float | None = None
 
     def __post_init__(self) -> None:
         if self.length_m < 0:
@@ -97,6 +121,7 @@ class RouteScore:
     advisory: Advisory
     worst_segment_id: int | None
     unscored_fraction: float
+    relative_dose_pct: float = 0.0
 
     @property
     def magnitude_km(self) -> float:
@@ -123,11 +148,15 @@ def score_route(
         raise ValueError("cannot score an empty route")
 
     activity_factor = ACTIVITY_FACTORS[activity]
+    vent_rate = DEFAULT_VENTILATION_L_MIN.get(activity, 15.0)
+    speed_mps = DEFAULT_SPEEDS_MPS.get(activity, 1.34)
 
     scored: list[SegmentScore] = []
     total_length = 0.0
     scored_length = 0.0
     weighted_sum = 0.0
+    total_physical_dose = 0.0
+    has_any_pm25 = False
 
     for segment in segments:
         total_length += segment.length_m
@@ -156,11 +185,26 @@ def score_route(
         scored_length += segment.length_m
         weighted_sum += adjusted_aqi * segment.length_m
 
+        if segment.pm25_concentration is not None:
+            has_any_pm25 = True
+            seg_dur_min = (
+                segment.duration_s / 60.0
+                if segment.duration_s is not None
+                else (segment.length_m / speed_mps) / 60.0
+            )
+            ratio = (
+                (adjusted_aqi / segment.base_aqi)
+                if segment.base_aqi and segment.base_aqi > 0
+                else 1.0
+            )
+            eff_pm25 = segment.pm25_concentration * ratio
+            total_physical_dose += compute_physical_dose(eff_pm25, seg_dur_min, vent_rate)
+
     if scored_length == 0.0 or total_length == 0.0:
         raise ValueError("route has no scoreable length")
 
     mean_aqi = weighted_sum / scored_length
-    dose = weighted_sum * activity_factor
+    dose = total_physical_dose if has_any_pm25 else (weighted_sum * activity_factor)
     category = categories.classify(mean_aqi)
 
     worst = max(scored, key=lambda s: s.adjusted_aqi, default=None)

@@ -79,6 +79,7 @@ class PlannedRoute:
     is_national_aqi: bool = True
     pollutants_used: int = 0
     is_estimated: bool = False
+    relative_dose_pct: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,10 +267,34 @@ class PlanService:
                 "window."
             )
 
-        ranked = engine.rank_routes([route.score for route in planned])
+        fastest = min(planned, key=lambda r: r.duration_s)
+        fastest_dose = fastest.score.dose
+        planned_with_rel: list[PlannedRoute] = []
+        for r in planned:
+            rel = (
+                round(100.0 * (r.score.dose - fastest_dose) / fastest_dose, 1)
+                if fastest_dose > 0
+                else 0.0
+            )
+            planned_with_rel.append(
+                PlannedRoute(
+                    distance_m=r.distance_m,
+                    duration_s=r.duration_s,
+                    score=r.score,
+                    aqi_confidence=r.aqi_confidence,
+                    basis=r.basis,
+                    geometry=r.geometry,
+                    is_national_aqi=r.is_national_aqi,
+                    pollutants_used=r.pollutants_used,
+                    is_estimated=r.is_estimated,
+                    relative_dose_pct=rel,
+                )
+            )
+
+        ranked = engine.rank_routes([route.score for route in planned_with_rel])
         # rank_routes returns the same RouteScore objects reordered, so matching on
         # identity keeps each score attached to its own distance/duration.
-        ordered_by_id = {id(route.score): route for route in planned}
+        ordered_by_id = {id(route.score): route for route in planned_with_rel}
         ordered = tuple(ordered_by_id[id(score)] for score in ranked)
 
         if forecast is None and climatology is None and hasattr(self._provider, "hourly_forecast"):
@@ -341,6 +366,7 @@ class PlanService:
                     length_m=segment.length_m,
                     base_aqi=self._index_for(reading),
                     road_class=segment.road_class,
+                    pm25_concentration=reading.concentrations.get("PM2.5"),
                 )
             )
         return out
