@@ -1,0 +1,99 @@
+{
+  "cities": [
+    {
+      "city": "Kolkata",
+      "stations": [
+        {
+          "station_id": "kol_victoria",
+          "name": "Victoria Memorial",
+          "lat": 22.5448,
+          "lng": 88.3426,
+          "readings": [
+            {"hour": 0, "pollutant": "PM2.5", "actual": 135.0, "model": 55.0},
+            {"hour": 1, "pollutant": "PM2.5", "actual": 140.0, "model": 52.0},
+            {"hour": 2, "pollutant": "PM2.5", "actual": 128.0, "model": 50.0},
+            {"hour": 0, "pollutant": "PM10", "actual": 210.0, "model": 90.0},
+            {"hour": 1, "pollutant": "PM10", "actual": 225.0, "model": 88.0}
+          ]
+        },
+        {
+          "station_id": "kol_rabindra",
+          "name": "Rabindra Sarobar",
+          "lat": 22.5123,
+          "lng": 88.3637,
+          "readings": [
+            {"hour": 0, "pollutant": "PM2.5", "actual": 125.0, "model": 55.0},
+            {"hour": 1, "pollutant": "PM2.5", "actual": 132.0, "model": 52.0},
+            {"hour": 2, "pollutant": "PM2.5", "actual": 118.0, "model": 50.0},
+            {"hour": 0, "pollutant": "PM10", "actual": 195.0, "model": 90.0},
+            {"hour": 1, "pollutant": "PM10", "actual": 205.0, "model": 88.0}
+          ]
+        },
+        {
+          "station_id": "kol_jadavpur",
+          "name": "Jadavpur University",
+          "lat": 22.4988,
+          "lng": 88.3712,
+          "readings": [
+            {"hour": 0, "pollutant": "PM2.5", "actual": 142.0, "model": 55.0},
+            {"hour": 1, "pollutant": "PM2.5", "actual": 148.0, "model": 52.0},
+            {"hour": 2, "pollutant": "PM2.5", "actual": 136.0, "model": 50.0},
+            {"hour": 0, "pollutant": "PM10", "actual": 230.0, "model": 90.0},
+            {"hour": 1, "pollutant": "PM10", "actual": 240.0, "model": 88.0}
+          ]
+        },
+        {
+          "station_id": "kol_ballygunge",
+          "name": "Ballygunge",
+          "lat": 22.5280,
+          "lng": 88.3650,
+          "readings": [
+            {"hour": 0, "pollutant": "PM2.5", "actual": 130.0, "model": 55.0},
+            {"hour": 1, "pollutant": "PM2.5", "actual": 138.0, "model": 52.0},
+            {"hour": 2, "pollutant": "PM2.5", "actual": 122.0, "model": 50.0},
+            {"hour": 0, "pollutant": "PM10", "actual": 200.0, "model": 90.0},
+            {"hour": 1, "pollutant": "PM10", "actual": 215.0, "model": 88.0}
+          ]
+        }
+      ]
+    },
+    {
+      "city": "Delhi",
+      "stations": [
+        {
+          "station_id": "del_anand_vihar",
+          "name": "Anand Vihar",
+          "lat": 28.6476,
+          "lng": 77.3158,
+          "readings": [
+            {"hour": 0, "pollutant": "PM2.5", "actual": 280.0, "model": 90.0},
+            {"hour": 1, "pollutant": "PM2.5", "actual": 295.0, "model": 88.0},
+            {"hour": 2, "pollutant": "PM2.5", "actual": 270.0, "model": 85.0}
+          ]
+        },
+        {
+          "station_id": "del_r_k_puram",
+          "name": "R K Puram",
+          "lat": 28.5632,
+          "lng": 77.1869,
+          "readings": [
+            {"hour": 0, "pollutant": "PM2.5", "actual": 250.0, "model": 90.0},
+            {"hour": 1, "pollutant": "PM2.5", "actual": 265.0, "model": 88.0},
+            {"hour": 2, "pollutant": "PM2.5", "actual": 240.0, "model": 85.0}
+          ]
+        },
+        {
+          "station_id": "del_punjabi_bagh",
+          "name": "Punjabi Bagh",
+          "lat": 28.6740,
+          "lng": 77.1310,
+          "readings": [
+            {"hour": 0, "pollutant": "PM2.5", "actual": 260.0, "model": 90.0},
+            {"hour": 1, "pollutant": "PM2.5", "actual": 275.0, "model": 88.0},
+            {"hour": 2, "pollutant": "PM2.5", "actual": 255.0, "model": 85.0}
+          ]
+        }
+      ]
+    }
+  ]
+}
