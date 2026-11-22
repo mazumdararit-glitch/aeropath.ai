@@ -53,6 +53,13 @@ class StreetModelParams:
     night_factor: float = 0.85
     rush_hours: frozenset[int] = frozenset({8, 9, 10, 17, 18, 19, 20})
     night_hours: frozenset[int] = frozenset({23, 0, 1, 2, 3, 4, 5})
+    # Sprint 3 (R3) - Physical dispersion parameters
+    canyon_leeward_factor: float = 1.0
+    wind_dispersion_exponent: float = 0.5
+    vegetation_reduction_factor: float = 0.18
+    vegetation_decay_length_m: float = 50.0
+    water_reduction_factor: float = 0.10
+    water_decay_length_m: float = 100.0
 
 
 # Initial rules-of-thumb table. Phase 0 fits these against station readings;
@@ -97,6 +104,57 @@ IDENTITY_MODEL = StreetModelParams(
     rush_factor=1.0,
     night_factor=1.0,
 )
+
+# Street Model v2 (Sprint 3 - R3): off by default, incorporates microclimate
+# wind direction/speed, street canyon vortex, and exponential vegetation/water decay.
+RULES_V2_MODEL = StreetModelParams(
+    version="rules_v2",
+    road_factors=dict(DEFAULT_ROAD_FACTORS),
+    green_attenuation=0.18,
+    green_scale_m=50.0,
+    water_attenuation=0.10,
+    water_scale_m=100.0,
+    rush_factor=1.15,
+    night_factor=0.85,
+    canyon_leeward_factor=1.4,
+    wind_dispersion_exponent=0.5,
+    vegetation_reduction_factor=0.18,
+    vegetation_decay_length_m=50.0,
+    water_reduction_factor=0.10,
+    water_decay_length_m=100.0,
+)
+
+
+def proximity_v2_factor(distance_m: float, reduction: float, decay_m: float) -> float:
+    """Decay toward 1.0 as distance increases according to exponential length scale."""
+    if distance_m < 0:
+        raise ValueError("distance_m must not be negative")
+    return 1.0 - reduction * math.exp(-distance_m / decay_m)
+
+
+def canyon_wind_factor(
+    wind_speed_mps: float,
+    wind_dir_deg: float,
+    street_bearing_deg: float,
+    params: StreetModelParams,
+) -> float:
+    """Calculate street canyon vortex and wind ventilation dispersion factor."""
+    if wind_speed_mps < 0:
+        raise ValueError("wind_speed_mps must not be negative")
+
+    # Relative angle between wind vector and street orientation
+    rel_angle = abs((wind_dir_deg - street_bearing_deg + 180) % 360 - 180)
+    crosswind_fraction = math.sin(math.radians(rel_angle))
+
+    # Crosswinds generate leeward recirculating vortex trapping pollutants
+    vortex_enhancement = 1.0 + (params.canyon_leeward_factor - 1.0) * crosswind_fraction
+
+    # Ventilation dilution from wind speed: higher wind speed flushes street canyon
+    ventilation_dilution = 1.0 / (1.0 + (wind_speed_mps**params.wind_dispersion_exponent) * 0.25)
+
+    factor = vortex_enhancement * ventilation_dilution
+    return float(min(max(factor, 0.4), 2.0))
+
 
 
 def road_factor(params: StreetModelParams, road_class: RoadClass) -> float:

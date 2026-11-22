@@ -72,11 +72,12 @@ def create_app(
         router = OsrmRouter(
             resolved.osrm_base_url, timeout_s=resolved.osrm_timeout_s
         )
-        street_params = (
-            street_model.DEFAULT_MODEL
-            if resolved.street_model_version == "rules_v1"
-            else street_model.IDENTITY_MODEL
-        )
+        if resolved.enable_rules_v2 or resolved.street_model_version == "rules_v2":
+            street_params = street_model.RULES_V2_MODEL
+        elif resolved.street_model_version == "rules_v1":
+            street_params = street_model.DEFAULT_MODEL
+        else:
+            street_params = street_model.IDENTITY_MODEL
         return PlanService(provider, router, street_params=street_params)
 
     @app.get("/")

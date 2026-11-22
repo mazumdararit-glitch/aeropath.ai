@@ -122,6 +122,9 @@ def parse_response(
     return ways, green, water
 
 
+_OVERPASS_CACHE: dict[str, tuple[list[NearbyWay], list[NearbyArea], list[NearbyArea]]] = {}
+
+
 def fetch(
     points: dict[str, Coordinate],
     *,
@@ -130,12 +133,13 @@ def fetch(
     timeout_s: float = 180.0,
     attempts: int = 2,
 ) -> tuple[list[NearbyWay], list[NearbyArea], list[NearbyArea]]:
-    """Query Overpass, trying each mirror in turn.
+    """Query Overpass with in-memory caching across mirrors."""
+    cache_key = "|".join(
+        f"{sid}:{round(c.lat, 3)},{round(c.lng, 3)}" for sid, c in sorted(points.items())
+    ) + f":{road_radius_m}:{feature_radius_m}"
+    if cache_key in _OVERPASS_CACHE:
+        return _OVERPASS_CACHE[cache_key]
 
-    Overpass is a shared, frequently-overloaded public service; a single failure
-    says nothing about the query, so the mirrors are tried in order rather than
-    treating the first timeout as fatal.
-    """
     query = build_query(
         points, road_radius_m=road_radius_m, feature_radius_m=feature_radius_m
     )
@@ -163,6 +167,7 @@ def fetch(
                 len(water),
                 elapsed,
             )
+            _OVERPASS_CACHE[cache_key] = (ways, green, water)
             return ways, green, water
         except (httpx.HTTPError, RuntimeError, ValueError) as exc:
             logger.warning("overpass %s failed: %s", url, exc)

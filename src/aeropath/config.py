@@ -66,8 +66,44 @@ class Settings(BaseSettings):
     )
 
     # Street dispersion model: "rules_v1" (applies road type and rush hour factors)
-    # or "identity_v1" (unadjusted base grid)
+    # or "identity_v1" (unadjusted base grid) or "rules_v2" (Sprint 3 - R3)
     street_model_version: str = "rules_v1"
+
+    # ── Street Dispersion Model v2 (Sprint 3 - R3) ──
+    enable_rules_v2: bool = Field(
+        default=False,
+        description="Enable Street Dispersion Model v2 (off by default until validated)",
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Leeward street canyon concentration enhancement factor
+    canyon_leeward_factor: float = Field(
+        default=1.4,
+        description="Street canyon leeward vortex concentration multiplier (unverified assumption)",
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Wind speed dispersion attenuation exponent
+    wind_dispersion_exponent: float = Field(
+        default=0.5,
+        description="Wind speed dispersion exponent: C ~ (1 / (1 + v^exp)) (unverified assumption)",
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Urban vegetation PM attenuation fraction
+    vegetation_reduction_factor: float = Field(
+        default=0.18,
+        description="Vegetation PM absorption / barrier reduction fraction (unverified assumption)",
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Spatial decay length in meters for green buffer
+    vegetation_decay_length_m: float = Field(
+        default=50.0,
+        description="Decay distance in meters for vegetation attenuation (unverified assumption)",
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Water proximity particulate reduction fraction
+    water_reduction_factor: float = Field(
+        default=0.10,
+        description="Water cooling / particulate reduction fraction (unverified assumption)",
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Spatial decay length in meters for water bodies
+    water_decay_length_m: float = Field(
+        default=100.0,
+        description="Decay distance in meters for water proximity (unverified assumption)",
+    )
 
     # ── Pollutant Averaging & Damping Constants (Sprint 1 - A1) ──
     # UNVERIFIED ASSUMPTION (Rule 5): Scaling factor to estimate 8-h rolling mean ozone
