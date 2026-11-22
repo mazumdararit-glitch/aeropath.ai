@@ -52,6 +52,10 @@ class RouteModel(BaseModel):
         default=False,
         description="True if rolling history was insufficient and fallback estimates were used.",
     )
+    relative_dose_pct: float = Field(
+        default=0.0,
+        description="Dose relative to fastest route (e.g. -22.5% means 22.5% less dose).",
+    )
 
 
 class WindowModel(BaseModel):

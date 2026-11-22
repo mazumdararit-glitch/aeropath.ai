@@ -76,6 +76,28 @@ class Settings(BaseSettings):
         description="Unverified assumption: shrinkage applied to station-model residual.",
     )
 
+    # ── Physical Inhaled Dose Model Constants (Sprint 2 - R1) ──
+    # UNVERIFIED ASSUMPTION (Rule 5): Minute ventilation rates (Litres/min) by activity
+    # Walk: 15 L/min; Run: 45 L/min; Cycle: 30 L/min
+    ventilation_l_per_min: dict[str, float] = Field(
+        default_factory=lambda: {
+            "walk": 15.0,
+            "run": 45.0,
+            "cycle": 30.0,
+        },
+        description="Unverified assumption: minute ventilation rate in L/min by activity.",
+    )
+    # UNVERIFIED ASSUMPTION (Rule 5): Movement speeds (m/s) by activity
+    # Walk: 1.34 m/s (4.8 km/h); Run: 2.68 m/s (9.6 km/h); Cycle: 5.0 m/s (18 km/h)
+    activity_speeds_mps: dict[str, float] = Field(
+        default_factory=lambda: {
+            "walk": 1.34,
+            "run": 2.68,
+            "cycle": 5.0,
+        },
+        description="Unverified assumption: typical movement speeds in m/s by activity.",
+    )
+
     # Routing backend
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_timeout_s: float = 15.0
