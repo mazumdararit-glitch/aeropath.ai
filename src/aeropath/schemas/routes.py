@@ -48,6 +48,10 @@ class RouteModel(BaseModel):
     pollutants_used: int = Field(
         description="How many pollutants the index was computed from."
     )
+    is_estimated: bool = Field(
+        default=False,
+        description="True if rolling history was insufficient and fallback estimates were used.",
+    )
 
 
 class WindowModel(BaseModel):

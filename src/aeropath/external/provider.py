@@ -28,6 +28,8 @@ class PointReading:
     source: str
     nearest_station_km: float
     observed_at: datetime | None = None
+    is_estimated: bool = False
+    averaging_hours: dict[str, int | str] | None = None
 
     @property
     def confidence(self) -> Confidence:
@@ -40,6 +42,8 @@ class PointReading:
         otherwise call a whole city "high confidence" just because the grid
         snapped nearby.
         """
+        if self.is_estimated:
+            return Confidence.LOW
         if self.source == "open_meteo_cams":
             # One grid cell per city: useful for timing, never street-level.
             return Confidence.LOW
