@@ -98,6 +98,20 @@ class Settings(BaseSettings):
         description="Unverified assumption: typical movement speeds in m/s by activity.",
     )
 
+    # ── Candidate Generation & Labeled Routes (Sprint 2 - R2) ──
+    max_detour_pct: float = Field(
+        default=20.0,
+        description="Max allowed distance detour for clean air routes (percentage).",
+    )
+    balanced_min_dose_reduction_pct: float = Field(
+        default=15.0,
+        description="Min dose reduction percentage to qualify as Balanced route.",
+    )
+    balanced_max_distance_increase_pct: float = Field(
+        default=10.0,
+        description="Max distance increase percentage to qualify as Balanced route.",
+    )
+
     # Routing backend
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_timeout_s: float = 15.0

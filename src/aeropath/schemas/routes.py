@@ -56,6 +56,10 @@ class RouteModel(BaseModel):
         default=0.0,
         description="Dose relative to fastest route (e.g. -22.5% means 22.5% less dose).",
     )
+    route_label: str = Field(
+        default="",
+        description="Candidate route classification: 'Direct', 'Max Clean Air', or 'Balanced'.",
+    )
 
 
 class WindowModel(BaseModel):
